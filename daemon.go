@@ -200,7 +200,7 @@ func substituteUnreleased(changelog string, distro *Distribution) error {
 		return err
 	}
 
-	repl := fmt.Sprintf("-$1%s0) %s", distro.CodeName, distro.CodeName)
+	repl := fmt.Sprintf("-${1}%s0) %s", distro.CodeName, distro.CodeName)
 
 	// Substitute
 	ret := changelogSubstituteRegex.ReplaceAllString(string(b), repl)
