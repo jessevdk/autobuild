@@ -618,7 +618,7 @@ func (x *CommandDaemon) Execute(args []string) error {
 }
 
 func init() {
-	packageInfoRegex, _ = regexp.Compile(`(.*)_([0-9]+(\.[0-9]+)+).tar.(gz|xz|bz2)`)
+	packageInfoRegex, _ = regexp.Compile(`(.*)[_-]([0-9]+(\.[0-9]+)+).tar.(gz|xz|bz2)`)
 	changelogSubstituteRegex, _ = regexp.Compile(`-([0-9]+)\) UNRELEASED`)
 
 	queue = make(Queue, 256)
