@@ -395,8 +395,9 @@ func buildSourcePackage(info *BuildInfo, distro *Distribution) error {
 
 	if err := cmd.Run(); err != nil {
 		llog.Close()
-		os.RemoveAll(src.ResultsDir)
 
+		// Still move the log
+		os.RemoveAll(info.BuildResultsDir)
 		return err
 	}
 
@@ -456,7 +457,7 @@ func buildBinaryPackages(info *BuildInfo, distro *Distribution, arch string) err
 
 	if err := cmd.Run(); err != nil {
 		llog.Close()
-		os.RemoveAll(bin.ResultsDir)
+		os.RemoveAll(info.BuildResultsDir)
 		return err
 	}
 
