@@ -227,8 +227,11 @@ func (x *CommandGitPreparePackage) Execute(args []string) error {
 		return err
 	}
 
-	diffcmd := exec.Command("git", "diff", fmt.Sprintf("%s..debian", string(diffbase)))
+	b := strings.TrimRight(string(diffbase), "\n")
+
+	diffcmd := exec.Command("git", "diff", fmt.Sprintf("%s..debian", b))
 	gzipcmd := exec.Command("gzip", "-c")
+
 	gzipcmd.Stdin, _ = diffcmd.StdoutPipe()
 	gzipcmd.Stdout, _ = os.Create(path.Join(tmp, diffgz))
 
