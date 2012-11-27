@@ -13,6 +13,7 @@ import (
 	"path"
 	"regexp"
 	"syscall"
+	"io"
 )
 
 type CommandDaemon struct {
@@ -353,7 +354,8 @@ func buildSourcePackage(info *BuildInfo, distro *Distribution) error {
 	// Make package local results dir
 	os.MkdirAll(src.ResultsDir, 0755)
 
-	llog, err := os.Create(path.Join(src.ResultsDir, "log"))
+	llogpath := path.Join(src.ResultsDir, "log")
+	llog, err := os.Create(llogpath)
 
 	if err != nil {
 		os.RemoveAll(src.ResultsDir)
@@ -376,8 +378,16 @@ func buildSourcePackage(info *BuildInfo, distro *Distribution) error {
 	cmd.Env = append(cmd.Env, fmt.Sprintf("DIST=%s/%s", distro.Os, distro.CodeName))
 	cmd.Env = append(cmd.Env, fmt.Sprintf("AUTOBUILD_BASE=%s", options.Base))
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var wr io.Writer
+
+	if options.Verbose {
+		wr = io.MultiWriter(llog, os.Stdout)
+	} else {
+		wr = llog
+	}
+
+	cmd.Stdout = wr
+	cmd.Stderr = wr
 
 	if options.Verbose {
 		fmt.Printf("Run pdebuild for source in `%s'...\n", info.Package.Dir)
@@ -408,7 +418,8 @@ func buildBinaryPackages(info *BuildInfo, distro *Distribution, arch string) err
 	// Make package local results dir
 	os.MkdirAll(bin.ResultsDir, 0755)
 
-	llog, err := os.Create(path.Join(bin.ResultsDir, "log"))
+	llogpath := path.Join(bin.ResultsDir, "log")
+	llog, err := os.Create(llogpath)
 
 	if err != nil {
 		os.RemoveAll(bin.ResultsDir)
@@ -432,8 +443,16 @@ func buildBinaryPackages(info *BuildInfo, distro *Distribution, arch string) err
 	cmd.Env = append(cmd.Env, fmt.Sprintf("ARCH=%s", arch))
 	cmd.Env = append(cmd.Env, fmt.Sprintf("AUTOBUILD_BASE=%s", options.Base))
 
-	cmd.Stdout = llog
-	cmd.Stderr = llog
+	var wr io.Writer
+
+	if options.Verbose {
+		wr = io.MultiWriter(llog, os.Stdout)
+	} else {
+		wr = llog
+	}
+
+	cmd.Stdout = wr
+	cmd.Stderr = wr
 
 	if err := cmd.Run(); err != nil {
 		llog.Close()
