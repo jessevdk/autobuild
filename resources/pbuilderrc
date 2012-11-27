@@ -37,14 +37,6 @@ APTCACHE="$PBUILDER_BASE/aptcache/"
 
 BUILDPLACE="$PBUILDER_ROOT/build/"
 
-# Check of the build directory is mounted as a tmpfs
-istmpfs=$(mount -l -t tmpfs | grep "$PBUILDER_ROOT/build")
-
-if [ ! -z "$istmpfs"; ] then
-	# If so, then set aptcache not to hardlink
-	APTCACHEHARDLINK=no
-fi
-
 HOOKDIR="$PBUILDER_ROOT/hooks/"
 CCACHEDIR="$PBUILDER_ROOT/ccache/"
 
