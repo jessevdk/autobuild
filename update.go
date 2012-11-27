@@ -30,7 +30,7 @@ func (x *CommandUpdate) Execute(args []string) error {
 	}
 
 	for _, distro := range distros {
-		cmd := exec.Command("cowbuilder", cmdargs...)
+		cmd := exec.Command(options.Pbuilder, cmdargs...)
 
 		distvar := fmt.Sprintf("DIST=%s/%s", distro.Os, distro.CodeName)
 

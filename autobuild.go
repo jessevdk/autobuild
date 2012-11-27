@@ -39,6 +39,8 @@ type Options struct {
 	SetUser func(val string) error `short:"u" long:"user" description:"Authenticated user for autobuild communication" json:"-" default:"autobuild"`
 
 	UserId uint32 `json:"-"`
+
+	Pbuilder string `json:"pbuilder" no-flag:"-"`
 }
 
 func (x *Options) LoadConfig() {
@@ -130,6 +132,8 @@ var options = &Options{
 		os.Exit(1)
 		return nil
 	},
+
+	Pbuilder: "cowbuilder",
 }
 
 var parser = flags.NewParser(options, flags.Default)

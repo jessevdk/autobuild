@@ -11,7 +11,7 @@ type CommandInstall struct {
 
 func (x *CommandInstall) Execute(args []string) error {
 	pkgs := []string{
-		"cowbuilder",
+		options.Pbuilder,
 		"devscripts",
 		"reprepro",
 		"debootstrap",

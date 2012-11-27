@@ -365,7 +365,7 @@ func buildSourcePackage(info *BuildInfo, distro *Distribution) error {
 	// Call pdebuild
 	cmd := MakeCommandIn(pkgdir,
 		"pdebuild",
-		"--pbuilder", "cowbuilder",
+		"--pbuilder", options.Pbuilder,
 		"--configfile", path.Join(options.Base, "etc", "pbuilderrc"),
 		"--buildresult", info.BuildResultsDir,
 		"--debbuildopts", "-us",
@@ -420,7 +420,7 @@ func buildBinaryPackages(info *BuildInfo, distro *Distribution, arch string) err
 	// Call pdebuild
 	cmd := MakeCommandIn(pkgdir,
 		"pdebuild",
-		"--pbuilder", "cowbuilder",
+		"--pbuilder", options.Pbuilder,
 		"--configfile", path.Join(options.Base, "etc", "pbuilderrc"),
 		"--buildresult", info.BuildResultsDir,
 		"--debbuildopts", "-us",
