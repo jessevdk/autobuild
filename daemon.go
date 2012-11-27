@@ -50,6 +50,8 @@ var queue Queue
 var packageInfoRegex *regexp.Regexp
 var changelogSubstituteRegex *regexp.Regexp
 
+var results []*BuildInfo
+
 func NewPackageInfo(filename string) *PackageInfo {
 	basename := path.Base(filename)
 	matched := packageInfoRegex.FindStringSubmatch(basename)
@@ -515,6 +517,7 @@ func buildPackage(info *PackageInfo) error {
 		}
 	}
 
+	results = append(results, binfo)
 	return nil
 }
 
