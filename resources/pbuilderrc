@@ -1,0 +1,82 @@
+# Mirrors to use. Update these to your preferred mirror.
+DEBIAN_MIRROR="ftp.ch.debian.org"
+UBUNTU_MIRROR="ch.archive.ubuntu.com"
+
+# DIST is in the form <debian|ubuntu>/<distribution>
+OS="${DIST%/*}"
+DISTRIBUTION="${DIST#*/}"
+
+if [ -z "$OS" ] || [ -z "$DISTRIBUTION" ] || [ "$OS" = "$DIST" ] || [ "$DISTRIBUTION" = "$DIST" ]; then
+	echo "Unknown distribution $DIST, please specify ubuntu/precise (for example)." 1>&2
+	exit 1
+fi
+
+# Optionally set the architecture to the host architecture if none set. Note
+# that you can set your own default (i.e. ${ARCH:="i386"}).
+: ${ARCH:="$(dpkg --print-architecture)"}
+
+NAME="$DIST"
+
+unset DEBOOTSTRAPOPTS
+
+if [ -n "${ARCH}" ]; then
+	NAME="$NAME-$ARCH"
+	DEBOOTSTRAPOPTS=("--arch" "$ARCH" "${DEBOOTSTRAPOPTS[@]}")
+fi
+
+DEBOOTSTRAPOPTS=("--variant=buildd" "${DEBOOTSTRAPOPTS[@]}")
+
+PBUILDER_ROOT="$AUTOBUILD_BASE/pbuilder"
+PBUILDER_BASE="$PBUILDER_ROOT/$NAME"
+
+mkdir -p "$PBUILDER_BASE"
+
+BASEPATH="$PBUILDER_BASE/base.cow/"
+BUILDRESULT="$PBUILDER_BASE/result/"
+APTCACHE="$PBUILDER_BASE/aptcache/"
+
+BUILDPLACE="$PBUILDER_ROOT/build/"
+
+# Check of the build directory is mounted as a tmpfs
+istmpfs=$(mount -l -t tmpfs | grep "$PBUILDER_ROOT/build")
+
+if [ ! -z "$istmpfs"; ] then
+	# If so, then set aptcache not to hardlink
+	APTCACHEHARDLINK=no
+fi
+
+HOOKDIR="$PBUILDER_ROOT/hooks/"
+CCACHEDIR="$PBUILDER_ROOT/ccache/"
+
+# Bindmount our repository
+REPO="$AUTOBUILD_BASE/repository"
+BINDMOUNTS="$REPO"
+
+OTHERMIRROR=""
+
+if [ -d "$REPO/$OS" ]; then
+	OTHERMIRROR="deb file://$REPO/$OS $DIST main"
+fi
+
+if [ "$OS" = "debian" ]; then
+	# Debian configuration
+	MIRRORSITE="http://$DEBIAN_MIRROR/debian/"
+	COMPONENTS="main contrib non-free"
+
+	DEBOOTSTRAPOPTS=("--keyring" "/usr/share/keyrings/debian-archive-keyring.gpg" "${DEBOOTSTRAPOPTS[@]}")
+elif [ "$OS" = "ubuntu" ]; then
+	# Ubuntu configuration
+	MIRRORSITE="http://$UBUNTU_MIRROR/ubuntu/"
+	COMPONENTS="main restricted universe multiverse"
+
+	DEBOOTSTRAPOPTS=("--keyring" "/usr/share/keyrings/ubuntu-archive-keyring.gpg" "${DEBOOTSTRAPOPTS[@]}")
+else
+	echo "Unknown distribution: $OS." 1>&2
+	exit 1
+fi
+
+# Use eatmydata if available
+if [ "$DIST" = "debian/wheezy" ] || [ "$DIST" = "ubuntu/precise" ]; then
+	EXTRAPACKAGES="$EXTRAPACKAGES eatmydata"
+	LD_PRELOAD="${LD_PRELOAD:+$LD_PRELOAD:}/usr/lib/libeatmydata/libeatmydata.so"
+fi

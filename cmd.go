@@ -1,0 +1,48 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+)
+
+func prepareCommand(name string, arg ...string) *exec.Cmd {
+	cmd := exec.Command(name, arg...)
+
+	cmd.Stderr = os.Stderr
+
+	if options.Verbose {
+		cmd.Stdout = os.Stdout
+	}
+
+	return cmd
+}
+
+func runCommandReal(cmd *exec.Cmd) error {
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error running command: %s\n", err)
+		return err
+	}
+
+	return nil
+}
+
+func RunCommand(name string, arg ...string) error {
+	return runCommandReal(MakeCommand(name, arg...))
+}
+
+func RunCommandIn(wd string, name string, arg ...string) error {
+	return runCommandReal(MakeCommandIn(wd, name, arg...))
+}
+
+func MakeCommand(name string, arg ...string) *exec.Cmd {
+	return prepareCommand(name, arg...)
+}
+
+func MakeCommandIn(wd string, name string, arg ...string) *exec.Cmd {
+	ret := prepareCommand(name, arg...)
+
+	ret.Dir = wd
+
+	return ret
+}
