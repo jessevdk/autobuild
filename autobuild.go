@@ -35,8 +35,9 @@ type Options struct {
 	BuildOptions BuildOptions `json:"build-options"`
 
 	User string `json:"user,omitempty"`
+	Group string `short:"g" long:"group" description:"Authenticated group for autobuild communication" default:"autobuild" json:"group,omitempty"`
 
-	SetUser func(val string) error `short:"u" long:"user" description:"Authenticated user for autobuild communication" json:"-" default:"autobuild"`
+	SetUser func(val string) error `short:"u" long:"user" description:"Authenticated user for autobuild communication" json:"-"`
 
 	UserId uint32 `json:"-"`
 
@@ -139,6 +140,10 @@ var options = &Options{
 var parser = flags.NewParser(options, flags.Default)
 
 func parseUser() error {
+	if len(options.User) == 0 {
+		return nil
+	}
+
 	us, err := user.Lookup(options.User)
 
 	if err != nil {

@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"syscall"
 	"io"
+	"os/user"
 )
 
 type CommandDaemon struct {
@@ -521,6 +522,22 @@ func buildPackage(info *PackageInfo) error {
 	return nil
 }
 
+func (x *CommandDaemon) verifyCredentials(uid uint32) bool {
+	if len(options.User) != 0 {
+		return uid == options.UserId
+	} else if len(options.Group) != 0 {
+		us, err := user.LookupId(fmt.Sprintf("%v", uid))
+
+		if err != nil {
+			return false
+		}
+
+		return userIsMemberOfGroup(us.Username, options.Group)
+	}
+
+	return true
+}
+
 func (x *CommandDaemon) listen() (*rpc.Server, error) {
 	dirname := path.Join(options.Base, "run")
 	os.MkdirAll(dirname, 0755)
@@ -568,7 +585,7 @@ func (x *CommandDaemon) listen() (*rpc.Server, error) {
 				continue
 			}
 
-			if uid != options.UserId || options.UserId == 0 {
+			if !x.verifyCredentials(uid) {
 				if options.Verbose {
 					fmt.Printf("User is not authenticated, closing connection...\n")
 				}
@@ -605,6 +622,8 @@ func (x *CommandDaemon) Execute(args []string) error {
 					           pack.Name,
 					           err)
 				}
+			} else if options.Verbose {
+				fmt.Printf("Finished build of `%s'...\n", pack.Name)
 			}
 
 			os.Remove(pack.StageFile)
