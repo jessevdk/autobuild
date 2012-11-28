@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"os/exec"
 )
 
 type CommandInstall struct {
@@ -45,6 +46,25 @@ func (x *CommandInstall) Execute(args []string) error {
 
 	// Make hook executable
 	os.Chmod(updatehook, 0755)
+
+	if len(options.Group) > 0 {
+		fmt.Printf("Creating `%s' group\n", options.Group)
+		opts := []string {}
+
+		if !options.Verbose {
+			opts = append(opts, "--quiet")
+		}
+
+		opts = append(opts, options.Group)
+		cmd := exec.Command("addgroup", opts...)
+
+		if options.Verbose {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+
+		cmd.Run()
+	}
 
 	// Create dirs
 	for _, dir := range []string{"repository", "pbuilder"} {
