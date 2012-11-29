@@ -6,7 +6,6 @@ import (
 	"os"
 	"path"
 	"ponyo.epfl.ch/go/get/go/flags"
-	"strconv"
 	"syscall"
 )
 
@@ -23,6 +22,13 @@ type BuildOptions struct {
 	Distributions []*Distribution `json:"distributions"`
 }
 
+type RepositoryOptions struct {
+	Origin string `json:"origin"`
+	Label string `json:"label"`
+	Description string `json:"description"`
+	SignKey string `json:"sign-key"`
+}
+
 type Options struct {
 	Base     string                 `json:"base,omitempty"`
 	BaseFlag func(val string) error `short:"b" long:"base" description:"Base autobuild directory" json:"-" default:"/var/lib/autobuild"`
@@ -36,6 +42,8 @@ type Options struct {
 	Group string `short:"g" long:"group" description:"Authenticated group for autobuild communication" default:"autobuild" json:"group,omitempty"`
 
 	Pbuilder string `json:"pbuilder" no-flag:"-"`
+
+	Repository RepositoryOptions `json:"repository" no-flag:"-"`
 }
 
 func (x *Options) LoadConfig() {
