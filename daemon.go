@@ -523,9 +523,7 @@ func buildPackage(info *PackageInfo) error {
 }
 
 func (x *CommandDaemon) verifyCredentials(uid uint32) bool {
-	if len(options.User) != 0 {
-		return uid == options.UserId
-	} else if len(options.Group) != 0 {
+	if len(options.Group) != 0 {
 		us, err := user.LookupId(fmt.Sprintf("%v", uid))
 
 		if err != nil {

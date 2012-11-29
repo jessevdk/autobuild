@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/user"
 	"path"
 	"ponyo.epfl.ch/go/get/go/flags"
 	"strconv"
@@ -34,12 +33,7 @@ type Options struct {
 
 	BuildOptions BuildOptions `json:"build-options"`
 
-	User string `json:"user,omitempty"`
 	Group string `short:"g" long:"group" description:"Authenticated group for autobuild communication" default:"autobuild" json:"group,omitempty"`
-
-	SetUser func(val string) error `short:"u" long:"user" description:"Authenticated user for autobuild communication" json:"-"`
-
-	UserId uint32 `json:"-"`
 
 	Pbuilder string `json:"pbuilder" no-flag:"-"`
 }
@@ -56,8 +50,6 @@ func (x *Options) LoadConfig() {
 
 	dec := json.NewDecoder(f)
 	dec.Decode(x)
-
-	parseUser()
 }
 
 func (x *BuildOptions) HasDistribution(distro *Distribution, arch string) bool {
@@ -139,40 +131,12 @@ var options = &Options{
 
 var parser = flags.NewParser(options, flags.Default)
 
-func parseUser() error {
-	if len(options.User) == 0 {
-		return nil
-	}
-
-	us, err := user.Lookup(options.User)
-
-	if err != nil {
-		return err
-	}
-
-	uid, err := strconv.ParseUint(us.Uid, 10, 32)
-
-	if err != nil {
-		return err
-	}
-
-	options.UserId = uint32(uid)
-	return nil
-}
-
 func init() {
 	options.BaseFlag = func(arg string) error {
 		options.Base = arg
 		options.LoadConfig()
 		return nil
 	}
-
-	options.SetUser = func(arg string) error {
-		options.User = arg
-		return parseUser()
-	}
-
-	parseUser()
 }
 
 func main() {
