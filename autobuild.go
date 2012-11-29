@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"ponyo.epfl.ch/go/get/go/flags"
+	"github.com/jessevdk/go-flags"
 	"syscall"
 )
 
