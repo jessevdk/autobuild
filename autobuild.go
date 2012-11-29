@@ -19,14 +19,15 @@ type Distribution struct {
 }
 
 type BuildOptions struct {
-	Distributions []*Distribution `json:"distributions"`
+	Distributions []*Distribution `json:"distributions,omit-empty"`
 }
 
 type RepositoryOptions struct {
-	Origin string `json:"origin"`
-	Label string `json:"label"`
-	Description string `json:"description"`
-	SignKey string `json:"sign-key"`
+	Origin string `json:"origin,omit-empty"`
+	Label string `json:"label,omit-empty"`
+	Description string `json:"description,omit-empty"`
+	SignKey string `json:"sign-key,omit-empty"`
+	ListenPort string `json:"listen-port,omit-empty"`
 }
 
 type Options struct {
@@ -35,9 +36,9 @@ type Options struct {
 	Verbose  bool                   `short:"v" long:"verbose" description:"Verbose output" json:"-"`
 	Version  func() error           `short:"V" long:"version" description:"Print the version" json:"-"`
 
-	Remote string `short:"r" long:"remote" description:"Remote host for autobuild client commands" json:"remote"`
+	Remote string `short:"r" long:"remote" description:"Remote host for autobuild client commands" json:"remote,omitempty"`
 
-	BuildOptions BuildOptions `json:"build-options"`
+	BuildOptions BuildOptions `json:"build-options,omit-empty"`
 
 	Group string `short:"g" long:"group" description:"Authenticated group for autobuild communication" default:"autobuild" json:"group,omitempty"`
 
@@ -99,7 +100,9 @@ func (x *Options) UpdateConfig(updateFunc func(*Options)) error {
 	dec := json.NewDecoder(f)
 	dec.Decode(x)
 
-	updateFunc(x)
+	if updateFunc != nil {
+		updateFunc(x)
+	}
 
 	f.Seek(0, 0)
 	f.Truncate(0)
@@ -119,6 +122,14 @@ func (x *Options) UpdateConfig(updateFunc func(*Options)) error {
 	return err
 }
 
+func (x *Options) SaveConfig() error {
+	cp := *x
+
+	return x.UpdateConfig(func (opt *Options) {
+		*opt = cp
+	})
+}
+
 func (x *Distribution) SourceName() string {
 	return fmt.Sprintf("%s/%s", x.Os, x.CodeName)
 }
@@ -135,6 +146,10 @@ var options = &Options{
 	},
 
 	Pbuilder: "cowbuilder",
+
+	Repository: RepositoryOptions {
+		ListenPort: "8080",
+	},
 }
 
 var parser = flags.NewParser(options, flags.Default)

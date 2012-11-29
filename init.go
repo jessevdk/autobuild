@@ -48,6 +48,22 @@ func (x *CommandInit) addDistro(distro *Distribution, arch string) error {
 
 	f.Close()
 
+	incomingconf := path.Join(confdir, "incoming")
+	f, err = os.OpenFile(incomingconf, os.O_CREATE | os.O_APPEND | os.O_WRONLY, 0644)
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintln(f, "")
+	fmt.Fprintf(f, "Name: %s\n", distro.CodeName)
+	fmt.Fprintf(f, "IncomingDir: incoming/%s\n", distro.CodeName)
+	fmt.Fprintln(f, "TempDir: tmp")
+	fmt.Fprintf(f, "Allow: %s\n", distro.CodeName)
+	fmt.Fprintln(f, "Cleanup: on_deny on_error")
+
+	f.Close()
+
 	f, err = os.Create(path.Join(confdir, fmt.Sprintf("override.%s", distro.CodeName)))
 
 	if err != nil {

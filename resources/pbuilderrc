@@ -46,7 +46,7 @@ BINDMOUNTS="$REPO"
 
 OTHERMIRROR=""
 
-if [ -d "$REPO/$OS" ]; then
+if [ -d "$REPO/$OS/dists/$OS/$DIST/main/binary-$ARCH" ]; then
 	OTHERMIRROR="deb file://$REPO/$OS $DIST main"
 fi
 

@@ -9,10 +9,9 @@ import (
 func prepareCommand(name string, arg ...string) *exec.Cmd {
 	cmd := exec.Command(name, arg...)
 
-	cmd.Stderr = os.Stderr
-
 	if options.Verbose {
 		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 	}
 
 	return cmd

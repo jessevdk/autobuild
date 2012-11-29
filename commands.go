@@ -3,6 +3,7 @@ package main
 import (
 	"path"
 	"os"
+	"fmt"
 )
 
 type DaemonCommands struct {
@@ -11,12 +12,46 @@ type DaemonCommands struct {
 type Archive struct {
 	Filename string
 	Data     []byte
+
+	Uid      uint32
+}
+
+type Incoming struct {
+	Uid      uint32
+}
+
+type Release struct {
+	Packages []IncomingPackage
+	Uid      uint32
 }
 
 type GeneralReply struct {
 }
 
+type IncomingPackage struct {
+	Name string
+	Key string
+	Distribution Distribution
+	Files []string
+}
+
+type IncomingReply struct {
+	Packages []IncomingPackage
+}
+
+func (x *IncomingPackage) Matches(info *DistroBuildInfo) bool {
+	return x.Distribution.Os == info.Distribution.Os &&
+	       x.Distribution.CodeName == info.Distribution.CodeName &&
+	       x.Distribution.Architectures[0] == info.Distribution.Architectures[0] &&
+	       x.Name == path.Base(info.Changes)
+}
+
 func (x *DaemonCommands) Stage(archive *Archive, reply *GeneralReply) error {
+	if building != nil && path.Base(building.StageFile) == path.Base(archive.Filename) {
+		return fmt.Errorf("The package `%s' is currently building already...",
+		                  path.Base(archive.Filename))
+	}
+
 	// Create stage dir if necessary
 	stagedir := path.Join(options.Base, "stage")
 	os.MkdirAll(stagedir, 0755)
@@ -40,6 +75,118 @@ func (x *DaemonCommands) Stage(archive *Archive, reply *GeneralReply) error {
 		return err
 	}
 
-	queue <- NewPackageInfo(full)
+	queue <- NewPackageInfo(full, archive.Uid)
+	return nil
+}
+
+func (x *DaemonCommands) makeIncomingPackage(key string, d *DistroBuildInfo) IncomingPackage {
+	ret := make([]string, len(d.ChangesFiles))
+
+	for i, f := range d.ChangesFiles {
+		ret[i] = f[len(options.Base) + 1:]
+	}
+
+	return IncomingPackage {
+		Name: path.Base(d.Changes),
+		Files: ret,
+		Distribution: d.Distribution,
+		Key: key,
+	}
+}
+
+func (x *DaemonCommands) Incoming(incoming *Incoming, reply *IncomingReply) error {
+	for _, res := range results {
+		if res.Info.Uid != incoming.Uid {
+			continue
+		}
+
+		for k, v := range res.Source {
+			p := x.makeIncomingPackage(k, v)
+			reply.Packages = append(reply.Packages, p)
+		}
+
+		for k, v := range res.Binaries {
+			p := x.makeIncomingPackage(k, v)
+			reply.Packages = append(reply.Packages, p)
+		}
+	}
+
+	return nil
+}
+
+func (x *DaemonCommands) doRelease(info *DistroBuildInfo) error {
+	incomingdir := path.Join(options.Base,
+	                         "repository",
+	                         info.Distribution.Os,
+	                         "incoming",
+	                         info.Distribution.CodeName)
+
+	os.MkdirAll(incomingdir, 0755)
+
+	// To release, we move all the registered files to the reprepro
+	// incoming
+	for _, f := range info.Files {
+		if err := os.Rename(f, path.Join(incomingdir, path.Base(f))); err != nil {
+			return err
+		}
+	}
+
+	// Then we remove everything from that thingie
+	os.RemoveAll(info.ResultsDir)
+	return nil
+}
+
+func (x *DaemonCommands) Release(release *Release, reply *GeneralReply) error {
+	resultsMutex.Lock()
+	defer resultsMutex.Unlock()
+
+	runReproMutex.Lock()
+
+	distros := make(map[string]Distribution)
+
+	resultscp := results
+	results := make([]*BuildInfo, 0, len(resultscp))
+	var err error
+
+	for _, res := range resultscp {
+		if res.Info.Uid != release.Uid {
+			results = append(results, res)
+			continue
+		}
+
+		for _, f := range release.Packages {
+			if v, ok := res.Source[f.Key]; ok && f.Matches(v) {
+				if err = x.doRelease(v); err != nil {
+					break
+				}
+
+				distros[v.Distribution.SourceName()] = v.Distribution
+
+				delete(res.Source, f.Key)
+			} else if v, ok := res.Binaries[f.Key]; ok && f.Matches(v) {
+				if err = x.doRelease(v); err != nil {
+					break
+				}
+
+				distros[v.Distribution.SourceName()] = v.Distribution
+				delete(res.Binaries, f.Key)
+			}
+		}
+
+		if len(res.Source) != 0 || len(res.Binaries) != 0 {
+			results = append(results, res)
+		}
+
+		if err != nil {
+			break
+		}
+	}
+
+	runReproMutex.Unlock()
+
+	for _, v := range distros {
+		runRepRepro(v)
+	}
+
 	return nil
 }
