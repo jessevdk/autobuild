@@ -10,7 +10,50 @@ import (
 type CommandInstall struct {
 }
 
+func (x *CommandInstall) makeGroup() (int, error) {
+	if len(options.Group) == 0 {
+		return 0, nil
+	}
+
+	g, err := lookupGroupId(options.Group)
+
+	if err != nil {
+		fmt.Printf("Creating group `%s'\n", options.Group)
+		opts := []string {}
+
+		if !options.Verbose {
+			opts = append(opts, "--quiet")
+		}
+
+		opts = append(opts, options.Group)
+		cmd := exec.Command("addgroup", opts...)
+
+		if options.Verbose {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+
+		if err := cmd.Run(); err != nil {
+			return 0, err
+		}
+
+		g, err = lookupGroupId(options.Group)
+
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return int(g), nil
+}
+
 func (x *CommandInstall) Execute(args []string) error {
+	_, err := x.makeGroup()
+
+	if err != nil {
+		return err
+	}
+
 	pkgs := []string{
 		options.Pbuilder,
 		"devscripts",
@@ -46,25 +89,6 @@ func (x *CommandInstall) Execute(args []string) error {
 
 	// Make hook executable
 	os.Chmod(updatehook, 0755)
-
-	if len(options.Group) > 0 {
-		fmt.Printf("Creating `%s' group\n", options.Group)
-		opts := []string {}
-
-		if !options.Verbose {
-			opts = append(opts, "--quiet")
-		}
-
-		opts = append(opts, options.Group)
-		cmd := exec.Command("addgroup", opts...)
-
-		if options.Verbose {
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-		}
-
-		cmd.Run()
-	}
 
 	// Create dirs
 	for _, dir := range []string{"repository", "pbuilder"} {
