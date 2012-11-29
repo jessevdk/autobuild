@@ -8,18 +8,135 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"io/ioutil"
+	"bufio"
+	"io"
 )
 
 type CommandInit struct {
 }
 
-func (x *CommandInit) AddDistribution(distro *Distribution, arch string) {
+func (x *CommandInit) addDistro(distro *Distribution, arch string) error {
+	// Setup reprepro structure
+	for _, dir := range []string{"conf", "incoming"} {
+		os.MkdirAll(path.Join(options.Base, "repository", distro.Os, dir), 0755)
+	}
+
+	// Update reprepro config
+	confdir := path.Join(options.Base, "repository", distro.Os, "conf")
+	distroconf := path.Join(confdir, "distributions")
+
+	f, err := os.OpenFile(distroconf, os.O_CREATE | os.O_APPEND | os.O_WRONLY, 0644)
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintln(f, "")
+	fmt.Fprintf(f,  "Origin: %s\n", options.Repository.Origin)
+	fmt.Fprintf(f,  "Label: %s\n", options.Repository.Label)
+	fmt.Fprintf(f,  "Codename: %s\n", distro.CodeName)
+	fmt.Fprintf(f,  "Architectures: %s source\n", arch)
+	fmt.Fprintln(f, "Components: main")
+	fmt.Fprintf(f,  "Description: %s Repository\n", options.Repository.Description)
+	fmt.Fprintf(f,  "DebOverride: override.%s\n", distro.CodeName)
+	fmt.Fprintf(f,  "DscOverride: override.%s\n", distro.CodeName)
+
+	if len(options.Repository.SignKey) > 0 {
+		fmt.Fprintf(f, "SignWith: %s\n", options.Repository.SignKey)
+	}
+
+	f.Close()
+
+	f, err = os.Create(path.Join(confdir, fmt.Sprintf("override.%s", distro.CodeName)))
+
+	if err != nil {
+		return err
+	}
+
+	f.Write([]byte {'\n'});
+	f.Close()
+
+	f, err = os.OpenFile(path.Join(confdir, "options"), os.O_CREATE | os.O_EXCL | os.O_WRONLY, 0644)
+
+	if err == nil {
+		fmt.Fprintf(f, "basedir %s\n", path.Join(options.Base, "repository", distro.Os))
+		f.Close()
+	}
+
+	return nil
+}
+
+func (x *CommandInit) addArch(distro *Distribution, arch string) error {
+	// Update reprepro config with the architecture
+	confdir := path.Join(options.Base, "repository", distro.Os, "conf")
+	distroconf := path.Join(confdir, "distributions")
+
+	frd, err := os.Open(distroconf)
+
+	if err != nil {
+		return err
+	}
+
+	fwr, err := ioutil.TempFile("", "autobuild-distributions")
+
+	if err != nil {
+		frd.Close()
+		return err
+	}
+
+	rd := bufio.NewReader(frd)
+
+	founddistro := false
+	didsubst := false
+	finds := fmt.Sprintf("Codename: %s", distro.CodeName)
+
+	for {
+		line, err := rd.ReadString('\n')
+		var nonl string
+
+		if err != nil && err != io.EOF {
+			return err
+		} else if err == nil {
+			nonl = line[0:len(line)-1]
+		} else {
+			nonl = line
+		}
+
+		if founddistro && !didsubst && strings.HasPrefix(nonl, "Architectures: ") {
+			fmt.Fprintf(fwr, "%s %s\n", nonl, arch)
+			didsubst = true
+		} else {
+			fmt.Fprintf(fwr, "%s", line)
+		}
+
+		if !founddistro && !didsubst && line == finds {
+			founddistro = true
+		}
+
+		if err == io.EOF {
+			break
+		}
+	}
+
+	fwr.Close()
+	frd.Close()
+
+	os.Rename(fwr.Name(), frd.Name())
+	os.Chmod(frd.Name(), 0644)
+
+	return nil
+}
+
+func (x *CommandInit) AddDistribution(distro *Distribution, arch string) error {
+	var err error
+
 	// Append distribution to know configured distributions
-	options.UpdateConfig(func(x *Options) {
+	options.UpdateConfig(func(opts *Options) {
 		toadd := true
 
 		// Add initialized distro to list of distributions
-		for _, distcfg := range x.BuildOptions.Distributions {
+		for _, distcfg := range opts.BuildOptions.Distributions {
 			if distcfg.Os == distro.Os && distcfg.CodeName == distro.CodeName {
 				for _, archcfg := range distcfg.Architectures {
 					if archcfg == arch {
@@ -29,9 +146,13 @@ func (x *CommandInit) AddDistribution(distro *Distribution, arch string) {
 				}
 
 				if toadd {
+					if err = x.addArch(distcfg, arch); err != nil {
+						return
+					}
+
 					// Add architecture
 					distcfg.Architectures = append(distcfg.Architectures,
-						arch)
+					                               arch)
 
 					toadd = false
 				}
@@ -47,10 +168,16 @@ func (x *CommandInit) AddDistribution(distro *Distribution, arch string) {
 				Architectures: []string{arch},
 			}
 
-			x.BuildOptions.Distributions =
-				append(x.BuildOptions.Distributions, d)
+			if err = x.addDistro(d, arch); err != nil {
+				return
+			}
+
+			opts.BuildOptions.Distributions =
+				append(opts.BuildOptions.Distributions, d)
 		}
 	})
+
+	return err
 }
 
 func ParseDistributions(args []string) ([]*Distribution, error) {
@@ -128,14 +255,15 @@ func (x *CommandInit) Execute(args []string) error {
 				arch)
 
 			basepath := path.Join(options.Base, "pbuilder", distro.Os, distro.CodeName+"-"+arch)
-
 			os.MkdirAll(path.Join(basepath, "aptcache"), 0755)
 
 			if err := cmd.Run(); err != nil {
 				return err
 			}
 
-			x.AddDistribution(distro, arch)
+			if err = x.AddDistribution(distro, arch); err != nil {
+				return err
+			}
 
 			fmt.Printf("Finished creating environment in `%s'\n", basepath)
 		}
@@ -145,5 +273,5 @@ func (x *CommandInit) Execute(args []string) error {
 }
 
 func init() {
-	parser.AddCommand("Init", "init", &CommandInit{})
+	parser.AddCommand("Init", "init", &CommandInit {})
 }
