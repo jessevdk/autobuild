@@ -46,5 +46,11 @@ func initRepRepro(distro *Distribution) error {
 	args = append(args, "export", distro.CodeName)
 
 	return RunCommand("reprepro", args...)
+}
 
+func clearVanishedRepReproLocked(distro *Distribution) error {
+	args := repReproArgs(distro)
+	args = append(args, "clearvanished")
+
+	return RunCommand("reprepro", args...)
 }
