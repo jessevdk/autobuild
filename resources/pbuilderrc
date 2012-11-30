@@ -67,6 +67,8 @@ else
 	exit 1
 fi
 
+EXTRAPACKAGES="$EXTRAPACKAGES apt-utils"
+
 # Use eatmydata if available
 if [ "$DIST" = "debian/wheezy" ] || [ "$DIST" = "ubuntu/precise" ]; then
 	EXTRAPACKAGES="$EXTRAPACKAGES eatmydata"
