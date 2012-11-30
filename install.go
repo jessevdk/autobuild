@@ -214,10 +214,11 @@ func (x *CommandInstall) configureSignKey() error {
 
 			if int(choice) == len(signkeys) {
 				fmt.Println()
-				break
 			} else {
 				options.Repository.SignKey = signkeys[choice].Id
 			}
+
+			break
 		}
 	}
 
