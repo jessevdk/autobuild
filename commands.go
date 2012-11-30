@@ -185,7 +185,7 @@ func (x *DaemonCommands) Release(release *Release, reply *GeneralReply) error {
 	runReproMutex.Unlock()
 
 	for _, v := range distros {
-		runRepRepro(v)
+		runRepRepro(&v)
 	}
 
 	return nil
