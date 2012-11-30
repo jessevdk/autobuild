@@ -33,7 +33,7 @@ func runRepRepro(distro *Distribution) error {
 	args := repReproArgs(distro)
 	args = append(args, "processincoming", distro.CodeName)
 
-	cmd := prepareCommand("reprepro", args...)
+	cmd := MakeCommand("reprepro", args...)
 
 	return cmd.Run()
 }
@@ -45,7 +45,6 @@ func initRepRepro(distro *Distribution) error {
 	args := repReproArgs(distro)
 	args = append(args, "export", distro.CodeName)
 
-	cmd := prepareCommand("reprepro", args...)
+	return RunCommand("reprepro", args...)
 
-	return cmd.Run()
 }

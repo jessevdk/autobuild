@@ -6,7 +6,6 @@ import (
 	"path"
 	"regexp"
 	"time"
-	"os/exec"
 	"io/ioutil"
 	"strings"
 	"bufio"
@@ -31,13 +30,13 @@ func (x *CommandGitPreparePackage) updateChangelog(name string, version string) 
 	}
 
 	date := time.Now().Format(time.RFC1123Z)
-	user, err := exec.Command("git", "config", "--get", "user.name").Output()
+	user, err := MakeCommand("git", "config", "--get", "user.name").Output()
 
 	if err != nil {
 		return err
 	}
 
-	email, err := exec.Command("git", "config", "--get", "user.email").Output()
+	email, err := MakeCommand("git", "config", "--get", "user.email").Output()
 
 	if err != nil {
 		return err
@@ -60,9 +59,9 @@ func (x *CommandGitPreparePackage) updateChangelog(name string, version string) 
 		editor = "vim"
 	}
 
-	exec.Command(editor, "debian/changelog").Run()
-	exec.Command("git", "add", "debian/changelog").Run()
-	exec.Command("git", "commit", "-e", "-m", fmt.Sprintf("Release version %s", version)).Run()
+	RunCommand(editor, "debian/changelog")
+	RunCommand("git", "add", "debian/changelog")
+	RunCommand("git", "commit", "-e", "-m", fmt.Sprintf("Release version %s", version))
 
 	return nil
 }
@@ -154,7 +153,7 @@ func (x *CommandGitPreparePackage) Execute(args []string) error {
 	}
 
 	// Extract
-	err = exec.Command("tar", "-C", tmp, fmt.Sprintf("-x%sf", tp), args[0]).Run()
+	err = RunCommand("tar", "-C", tmp, fmt.Sprintf("-x%sf", tp), args[0])
 
 	if err != nil {
 		return err
@@ -166,7 +165,7 @@ func (x *CommandGitPreparePackage) Execute(args []string) error {
 	diffgz := fmt.Sprintf("%s.gz", diff)
 	dname := fmt.Sprintf("%s-%s", name, version)
 
-	err = exec.Command("tar", "-C", tmp, "-czf", path.Join(tmp, orig), dname).Run()
+	err = RunCommand("tar", "-C", tmp, "-czf", path.Join(tmp, orig), dname)
 
 	if err != nil {
 		return err
@@ -188,9 +187,9 @@ func (x *CommandGitPreparePackage) Execute(args []string) error {
 			fmt.Printf("Generating patches for `%s'\n", branch)
 		}
 
-		cmd := exec.Command("git", "diff", fmt.Sprintf("debian..debian-%s", branch))
+		cmd := MakeCommand("git", "diff", fmt.Sprintf("debian..debian-%s", branch))
+		xz := MakeCommand("xz", "-z", "-c")
 
-		xz := exec.Command("xz", "-z", "-c")
 		xz.Stdout, _ = os.Create(fmt.Sprintf("%s/patches/%s.diff.xz", tmp, branch))
 		xz.Stdin, _ = cmd.StdoutPipe()
 
@@ -221,7 +220,7 @@ func (x *CommandGitPreparePackage) Execute(args []string) error {
 		files = append(files, "options")
 	}
 
-	diffbase, err := exec.Command("git", "merge-base", "master", "debian").Output()
+	diffbase, err := MakeCommand("git", "merge-base", "master", "debian").Output()
 
 	if err != nil {
 		return err
@@ -229,8 +228,8 @@ func (x *CommandGitPreparePackage) Execute(args []string) error {
 
 	b := strings.TrimRight(string(diffbase), "\n")
 
-	diffcmd := exec.Command("git", "diff", fmt.Sprintf("%s..debian", b))
-	gzipcmd := exec.Command("gzip", "-c")
+	diffcmd := MakeCommand("git", "diff", fmt.Sprintf("%s..debian", b))
+	gzipcmd := MakeCommand("gzip", "-c")
 
 	gzipcmd.Stdin, _ = diffcmd.StdoutPipe()
 	gzipcmd.Stdout, _ = os.Create(path.Join(tmp, diffgz))
@@ -251,7 +250,10 @@ func (x *CommandGitPreparePackage) Execute(args []string) error {
 	}
 
 	targs = append(targs, files...)
-	exec.Command("tar", targs...).Run()
+
+	if err := RunCommand("tar", targs...); err != nil {
+		return err
+	}
 
 	fmt.Printf("Generated %s.tar.xz\n", nm)
 

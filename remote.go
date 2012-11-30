@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/rpc"
 	"os"
-	"os/exec"
 	"path"
 	"reflect"
 	"syscall"
@@ -112,7 +111,7 @@ func RemoteConnect() (*rpc.Client, error) {
 		return rpc.NewClient(cl), nil
 	} else {
 		// Connect to the remote using ssh
-		cmd := exec.Command("ssh", options.Remote, "autobuild connect")
+		cmd := MakeCommand("ssh", options.Remote, "autobuild connect")
 		inp, err := cmd.StdinPipe()
 
 		if err != nil {

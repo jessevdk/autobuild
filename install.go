@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"os/exec"
 	"bufio"
 	"strings"
 	"strconv"
@@ -30,12 +29,7 @@ func (x *CommandInstall) makeGroup() (int, error) {
 		}
 
 		opts = append(opts, options.Group)
-		cmd := exec.Command("addgroup", opts...)
-
-		if options.Verbose {
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-		}
+		cmd := MakeCommand("addgroup", opts...)
 
 		if err := cmd.Run(); err != nil {
 			return 0, err
@@ -113,11 +107,7 @@ func (x *CommandInstall) listSignKeys() ([]SignKey, error) {
 		args = append(args, "-q")
 	}
 
-	cmd := exec.Command("gpg", args...)
-
-	if options.Verbose {
-		cmd.Stderr = os.Stderr
-	}
+	cmd := MakeCommand("gpg", args...)
 
 	ret, err := cmd.Output()
 
@@ -150,12 +140,7 @@ func (x *CommandInstall) exportSignKey() error {
 
 	os.Remove(keyfile)
 
-	cmd := exec.Command("gpg", args...)
-
-	if options.Verbose {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
+	cmd := MakeCommand("gpg", args...)
 
 	return cmd.Run()
 
@@ -254,14 +239,9 @@ func (x *CommandInstall) configureSignKey() error {
 			args = append(args, "-q")
 		}
 
-		cmd := exec.Command("gpg", args...)
+		cmd := MakeCommand("gpg", args...)
 
 		pipe, err := cmd.StdinPipe()
-
-		if options.Verbose {
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-		}
 
 		if err != nil {
 			return err
@@ -310,11 +290,7 @@ func (x *CommandInstall) configureSignKey() error {
 			args = append(args, "-q")
 		}
 
-		cmd = exec.Command("gpg", args...)
-
-		if options.Verbose {
-			cmd.Stderr = os.Stderr
-		}
+		cmd = MakeCommand("gpg", args...)
 
 		s, err := cmd.Output()
 
@@ -345,13 +321,7 @@ func (x *CommandInstall) configureSignKey() error {
 
 		args = append(args, "--import", pubring, secring)
 
-		cmd = exec.Command("gpg", args...)
-
-		if options.Verbose {
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-		}
-
+		cmd = MakeCommand("gpg", args...)
 		err = cmd.Run()
 
 		if err != nil {

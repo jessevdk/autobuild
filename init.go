@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path"
 	"runtime"
 	"strings"
@@ -254,7 +253,7 @@ func (x *CommandInit) Execute(args []string) error {
 	}
 
 	for _, distro := range distros {
-		cmd := exec.Command(options.Pbuilder, cmdargs...)
+		cmd := MakeCommand(options.Pbuilder, cmdargs...)
 
 		distvar := fmt.Sprintf("DIST=%s/%s", distro.Os, distro.CodeName)
 
@@ -270,11 +269,8 @@ func (x *CommandInit) Execute(args []string) error {
 			cmd.Env = append(cmd.Env, archvar)
 			cmd.Env = append(cmd.Env, fmt.Sprintf("AUTOBUILD_BASE=%s", options.Base))
 
-			cmd.Stderr = os.Stderr
-
 			if options.Verbose {
 				fmt.Printf("%s %s %s\n", distvar, archvar, strings.Join(cmd.Args, " "))
-				cmd.Stdout = os.Stdout
 			}
 
 			fmt.Printf("Creating environment for %s/%s (%s)\n",
