@@ -119,6 +119,8 @@ func (x *CommandInit) addArch(distro *Distribution, arch string) error {
 			nonl = line
 		}
 
+		nonl = strings.TrimSpace(nonl)
+
 		if founddistro && !didsubst && strings.HasPrefix(nonl, "Architectures: ") {
 			fmt.Fprintf(fwr, "%s %s\n", nonl, arch)
 			didsubst = true
@@ -126,7 +128,7 @@ func (x *CommandInit) addArch(distro *Distribution, arch string) error {
 			fmt.Fprintf(fwr, "%s", line)
 		}
 
-		if !founddistro && !didsubst && line == finds {
+		if !founddistro && !didsubst && nonl == finds {
 			founddistro = true
 		}
 
