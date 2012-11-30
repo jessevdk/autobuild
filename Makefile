@@ -1,5 +1,9 @@
 TARGET = autobuild
 SOURCES = $(wildcard *.go)
+DESTDIR =
+PREFIX = /usr/local
+
+INSTALLDIR = $(DESTDIR)$(PREFIX)
 
 V =
 
@@ -23,3 +27,7 @@ $(TARGET): $(SOURCES) $(RESOURCES)
 
 clean:
 	$(call vecho,CLEAN,$(TARGET)) rm -f $(TARGET)
+
+install:
+	test -z "$(INSTALLDIR)/bin" || mkdir -p "$(INSTALLDIR)/bin" && \
+	install -c $(TARGET) "$(INSTALLDIR)/bin"
