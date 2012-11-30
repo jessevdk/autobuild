@@ -23,11 +23,11 @@ type BuildOptions struct {
 }
 
 type RepositoryOptions struct {
-	Origin string `json:"origin,omit-empty"`
-	Label string `json:"label,omit-empty"`
-	Description string `json:"description,omit-empty"`
-	SignKey string `json:"sign-key,omit-empty"`
-	ListenPort string `json:"listen-port,omit-empty"`
+	Origin string `json:"origin,omit-empty" description:"The APT repository Origin field"`
+	Label string `json:"label,omit-empty" description:"The APT repository Label field"`
+	Description string `json:"description,omit-empty" description:"The APT repository Description field"`
+	SignKey string `json:"sign-key,omit-empty" description:"The APT repository sign key identifier"`
+	ListenPort string `json:"listen-port,omit-empty" description:"The APT repository webserver port"`
 }
 
 type Options struct {
