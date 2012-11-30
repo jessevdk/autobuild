@@ -32,6 +32,7 @@ func (x *CommandInit) addDistro(distro *Distribution, arch string) error {
 	}
 
 	fmt.Fprintln(f, "")
+	fmt.Fprintf(f,  "# %s\n", distro.SourceName())
 	fmt.Fprintf(f,  "Origin: %s\n", options.Repository.Origin)
 	fmt.Fprintf(f,  "Label: %s\n", options.Repository.Label)
 	fmt.Fprintf(f,  "Codename: %s\n", distro.CodeName)
@@ -55,6 +56,7 @@ func (x *CommandInit) addDistro(distro *Distribution, arch string) error {
 	}
 
 	fmt.Fprintln(f, "")
+	fmt.Fprintf(f, "# %s\n", distro.SourceName())
 	fmt.Fprintf(f, "Name: %s\n", distro.CodeName)
 	fmt.Fprintf(f, "IncomingDir: incoming/%s\n", distro.CodeName)
 	fmt.Fprintln(f, "TempDir: tmp")
