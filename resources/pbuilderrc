@@ -50,6 +50,8 @@ if [ -d "$REPO/$OS/dists/$DISTRIBUTION/main/binary-$ARCH" ]; then
 	OTHERMIRROR="deb file://$REPO/$OS/ $DISTRIBUTION main"
 fi
 
+APTKEYRINGS=("$REPO/sign.key")
+
 if [ "$OS" = "debian" ]; then
 	# Debian configuration
 	MIRRORSITE="http://$DEBIAN_MIRROR/debian/"
