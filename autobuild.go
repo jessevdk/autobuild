@@ -77,7 +77,7 @@ func (x *BuildOptions) HasDistribution(distro *Distribution, arch string) bool {
 	return false
 }
 
-func (x *Options) UpdateConfig(updateFunc func(*Options)) error {
+func (x *Options) UpdateConfig(updateFunc func(*Options) error) error {
 	dirname := path.Join(options.Base, "etc")
 	filename := path.Join(dirname, "autobuild.json")
 
@@ -101,7 +101,9 @@ func (x *Options) UpdateConfig(updateFunc func(*Options)) error {
 	dec.Decode(x)
 
 	if updateFunc != nil {
-		updateFunc(x)
+		if err := updateFunc(x); err != nil {
+			return err
+		}
 	}
 
 	f.Seek(0, 0)
@@ -125,8 +127,9 @@ func (x *Options) UpdateConfig(updateFunc func(*Options)) error {
 func (x *Options) SaveConfig() error {
 	cp := *x
 
-	return x.UpdateConfig(func (opt *Options) {
+	return x.UpdateConfig(func (opt *Options) error {
 		*opt = cp
+		return nil
 	})
 }
 

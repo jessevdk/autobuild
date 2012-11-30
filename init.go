@@ -147,10 +147,8 @@ func (x *CommandInit) addArch(distro *Distribution, arch string) error {
 }
 
 func (x *CommandInit) AddDistribution(distro *Distribution, arch string) error {
-	var err error
-
 	// Append distribution to know configured distributions
-	options.UpdateConfig(func(opts *Options) {
+	return options.UpdateConfig(func(opts *Options) error {
 		toadd := true
 
 		// Add initialized distro to list of distributions
@@ -164,16 +162,16 @@ func (x *CommandInit) AddDistribution(distro *Distribution, arch string) error {
 				}
 
 				if toadd {
-					if err = x.addArch(distcfg, arch); err != nil {
-						return
+					if err := x.addArch(distcfg, arch); err != nil {
+						return err
 					}
 
 					// Add architecture
 					distcfg.Architectures = append(distcfg.Architectures,
 					                               arch)
 
-					if err = initRepRepro(distro); err != nil {
-						return
+					if err := initRepRepro(distro); err != nil {
+						return err
 					}
 
 					toadd = false
@@ -190,20 +188,20 @@ func (x *CommandInit) AddDistribution(distro *Distribution, arch string) error {
 				Architectures: []string{arch},
 			}
 
-			if err = x.addDistro(d, arch); err != nil {
-				return
+			if err := x.addDistro(d, arch); err != nil {
+				return err
 			}
 
 			opts.BuildOptions.Distributions =
 				append(opts.BuildOptions.Distributions, d)
 
-			if err = initRepRepro(distro); err != nil {
-				return
+			if err := initRepRepro(distro); err != nil {
+				return err
 			}
 		}
-	})
 
-	return err
+		return nil
+	})
 }
 
 func ParseDistributions(args []string) ([]*Distribution, error) {

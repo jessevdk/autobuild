@@ -42,11 +42,13 @@ func (x *CommandWipe) wipeRepositoryFs(distro *Distribution, arch string) {
 }
 
 func (x *CommandWipe) wipeRepository(distro *Distribution) error {
-	return options.UpdateConfig(func (opts *Options) {
+	return options.UpdateConfig(func (opts *Options) error {
 		for _, arch := range distro.Architectures {
 			x.removeRepositoryConfig(opts, distro, arch)
 			x.wipeRepositoryFs(distro, arch)
 		}
+
+		return nil
 	})
 }
 
