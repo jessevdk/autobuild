@@ -275,7 +275,7 @@ func (x *CommandInit) Execute(args []string) error {
 				fmt.Printf("%s %s %s\n", distvar, archvar, strings.Join(cmd.Args, " "))
 			}
 
-			fmt.Printf("Creating environment for %s/%s (%s)\n",
+			fmt.Printf("Creating environment for %s/%s (%s), this may take a while...\n",
 				distro.Os,
 				distro.CodeName,
 				arch)

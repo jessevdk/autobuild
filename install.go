@@ -227,6 +227,9 @@ func (x *CommandInstall) configureSignKey() error {
 			}
 		}
 
+		fmt.Println()
+		fmt.Println("       Generating new key, this may take a while and you might need to generate some entropy (e.g. type on your keyboard, or run 'ls -R /')")
+
 		gpgdir := path.Join(options.Base, ".gnupg")
 
 		args := []string {
