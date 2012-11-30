@@ -30,6 +30,13 @@ func RunCommand(name string, arg ...string) error {
 	return runCommandReal(MakeCommand(name, arg...))
 }
 
+func RunOutputCommand(name string, arg ...string) ([]byte, error) {
+	cmd := MakeCommand(name, arg...)
+	cmd.Stdout = nil
+
+	return cmd.Output()
+}
+
 func RunCommandIn(wd string, name string, arg ...string) error {
 	return runCommandReal(MakeCommandIn(wd, name, arg...))
 }

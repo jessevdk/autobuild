@@ -30,19 +30,24 @@ func (x *CommandGitPreparePackage) updateChangelog(name string, version string) 
 	}
 
 	date := time.Now().Format(time.RFC1123Z)
-	user, err := MakeCommand("git", "config", "--get", "user.name").Output()
+	user, err := RunOutputCommand("git", "config", "--get", "user.name")
 
 	if err != nil {
 		return err
 	}
 
-	email, err := MakeCommand("git", "config", "--get", "user.email").Output()
+	users := strings.TrimSpace(string(user))
+
+	email, err := RunOutputCommand("git", "config", "--get", "user.email")
 
 	if err != nil {
 		return err
 	}
 
-	ch := fmt.Sprintf("%s (%s-1) UNRELEASED; urgency=low\n\n  * \n\n -- %s <%s>  %s\n", name, version, user, email, date) + string(changelog)
+	emails := strings.TrimSpace(string(email))
+
+	ch := fmt.Sprintf("%s (%s-1) UNRELEASED; urgency=low\n\n  * \n\n -- %s <%s>  %s\n\n",
+	                  name, version, users, emails, date) + string(changelog)
 
 	f, err = os.Create("debian/changelog")
 
@@ -59,9 +64,23 @@ func (x *CommandGitPreparePackage) updateChangelog(name string, version string) 
 		editor = "vim"
 	}
 
-	RunCommand(editor, "debian/changelog")
-	RunCommand("git", "add", "debian/changelog")
-	RunCommand("git", "commit", "-e", "-m", fmt.Sprintf("Release version %s", version))
+	cmd := MakeCommand(editor, "debian/changelog")
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	if err := RunCommand("git", "add", "debian/changelog"); err != nil {
+		return err
+	}
+
+	cmd = MakeCommand("git", "commit", "-e", "-m", fmt.Sprintf("Release version %s", version))
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Run(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -127,8 +146,8 @@ func (x *CommandGitPreparePackage) Execute(args []string) error {
 		return fmt.Errorf("Failed to extract version information from debian changelog")
 	}
 
-	if matched[1] != name || matched[2] != version {
-		if err := x.updateChangelog(name, version); err != nil {
+	if matched[2] != version {
+		if err := x.updateChangelog(matched[1], version); err != nil {
 			return err
 		}
 	}
@@ -220,7 +239,7 @@ func (x *CommandGitPreparePackage) Execute(args []string) error {
 		files = append(files, "options")
 	}
 
-	diffbase, err := MakeCommand("git", "merge-base", "master", "debian").Output()
+	diffbase, err := RunOutputCommand("git", "merge-base", "master", "debian")
 
 	if err != nil {
 		return err
@@ -229,6 +248,8 @@ func (x *CommandGitPreparePackage) Execute(args []string) error {
 	b := strings.TrimRight(string(diffbase), "\n")
 
 	diffcmd := MakeCommand("git", "diff", fmt.Sprintf("%s..debian", b))
+	diffcmd.Stdout = nil
+
 	gzipcmd := MakeCommand("gzip", "-c")
 
 	gzipcmd.Stdin, _ = diffcmd.StdoutPipe()
