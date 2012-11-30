@@ -38,7 +38,7 @@ type Options struct {
 
 	Remote string `short:"r" long:"remote" description:"Remote host for autobuild client commands" json:"remote,omitempty"`
 
-	BuildOptions BuildOptions `json:"build-options,omit-empty"`
+	BuildOptions BuildOptions `json:"build-options,omit-empty" config:"-"`
 
 	Group string `short:"g" long:"group" description:"Authenticated group for autobuild communication" default:"autobuild" json:"group,omitempty"`
 
