@@ -47,7 +47,7 @@ BINDMOUNTS="$REPO"
 OTHERMIRROR=""
 
 if [ -d "$REPO/$OS/dists/$DISTRIBUTION/main/binary-$ARCH" ]; then
-	OTHERMIRROR="deb file://$REPO/$OS/ $DISTRIBUTION main"
+	OTHERMIRROR="deb [arch=$ARCH] file://$REPO/$OS/ $DISTRIBUTION main"
 fi
 
 APTKEYRINGS=("$REPO/sign.key")
