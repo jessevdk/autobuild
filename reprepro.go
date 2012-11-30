@@ -7,19 +7,45 @@ import (
 
 var runReproMutex sync.Mutex
 
-func runRepRepro(distro Distribution) error {
+func repReproArgs(distro *Distribution) []string {
 	repodir := path.Join(options.Base, "repository")
 
+	ret := []string {
+		"-b",
+		path.Join(repodir, distro.Os),
+		"--gnupghome",
+		path.Join(options.Base, ".gnupg"),
+	}
+
+	if options.Verbose {
+		ret = append(ret, "-V")
+	} else {
+		ret = append(ret, "--silent")
+	}
+
+	return ret
+}
+
+func runRepRepro(distro *Distribution) error {
 	runReproMutex.Lock()
 	defer runReproMutex.Unlock()
 
-	cmd := prepareCommand("reprepro",
-	                      "-b",
-	                      path.Join(repodir, distro.Os),
-	                      "--gnupghome",
-	                      path.Join(options.Base, ".gnupg"),
-	                      "processincoming",
-	                      distro.CodeName)
+	args := repReproArgs(distro)
+	args = append(args, "processincoming", distro.CodeName)
+
+	cmd := prepareCommand("reprepro", args...)
+
+	return cmd.Run()
+}
+
+func initRepRepro(distro *Distribution) error {
+	runReproMutex.Lock()
+	defer runReproMutex.Unlock()
+
+	args := repReproArgs(distro)
+	args = append(args, "export", distro.CodeName)
+
+	cmd := prepareCommand("reprepro", args...)
 
 	return cmd.Run()
 }

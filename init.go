@@ -170,6 +170,10 @@ func (x *CommandInit) AddDistribution(distro *Distribution, arch string) error {
 					distcfg.Architectures = append(distcfg.Architectures,
 					                               arch)
 
+					if err = initRepRepro(distro); err != nil {
+						return
+					}
+
 					toadd = false
 				}
 
@@ -190,6 +194,10 @@ func (x *CommandInit) AddDistribution(distro *Distribution, arch string) error {
 
 			opts.BuildOptions.Distributions =
 				append(opts.BuildOptions.Distributions, d)
+
+			if err = initRepRepro(distro); err != nil {
+				return
+			}
 		}
 	})
 
@@ -251,6 +259,10 @@ func (x *CommandInit) Execute(args []string) error {
 		distvar := fmt.Sprintf("DIST=%s/%s", distro.Os, distro.CodeName)
 
 		for _, arch := range distro.Architectures {
+			if err = x.AddDistribution(distro, arch); err != nil {
+				return err
+			}
+
 			archvar := fmt.Sprintf("ARCH=%s", arch)
 
 			cmd.Env = os.Environ()
@@ -274,10 +286,6 @@ func (x *CommandInit) Execute(args []string) error {
 			os.MkdirAll(path.Join(basepath, "aptcache"), 0755)
 
 			if err := cmd.Run(); err != nil {
-				return err
-			}
-
-			if err = x.AddDistribution(distro, arch); err != nil {
 				return err
 			}
 
