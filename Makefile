@@ -13,9 +13,7 @@ endif
 
 GC = go
 
-RESOURCES =					\
-	resources/pbuilderrc			\
-	resources/D10apt-get-update
+RESOURCES = $(wildcard resources/*)
 
 SECTIONS = $(foreach i,$(RESOURCES),--add-section autobuild_res_$(notdir $(i))=$(i))
 
