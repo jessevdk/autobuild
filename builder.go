@@ -705,7 +705,7 @@ func (x *PackageBuilder) Load() {
 	x.Do(func (b *PackageBuilder) error {
 		fn, err := os.Open(f)
 
-		if err != nil {
+		if err == nil {
 			defer fn.Close()
 
 			dec := gob.NewDecoder(fn)
