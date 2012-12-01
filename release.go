@@ -110,5 +110,8 @@ func (x *CommandRelease) Execute(args []string) error {
 }
 
 func init() {
-	parser.AddCommand("Release", "release", &CommandRelease{})
+	parser.AddCommand("release",
+	                  "Release packages that have been built",
+	                  "The release command releases packages that have finished building. You will be presented with a list of finished packages and you can choose which packages to release. Note that you can specify packages by a comma separated list of their number (e.g. 1,2), ranges (e.g. 1:3) or use `*' to release all packages.",
+	                  &CommandRelease{})
 }

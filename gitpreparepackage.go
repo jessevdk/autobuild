@@ -282,5 +282,8 @@ func (x *CommandGitPreparePackage) Execute(args []string) error {
 }
 
 func init() {
-	parser.AddCommand("Git prepare package", "git-prepare-package", &CommandGitPreparePackage{})
+	parser.AddCommand("git-prepare-package",
+	                  "Prepare a package using information from a git repository",
+	                  "The git-prepare-package command creates an archive suitable for use with `autobuild stage' from a git repository. It expects the original tarball source as an argument and uses the `debian' branch of the current git repository to create the debian diff. Additionally, it will generate a new debian changelog entry if necessary.",
+	                  &CommandGitPreparePackage{})
 }

@@ -295,5 +295,8 @@ func (x *CommandInit) Execute(args []string) error {
 }
 
 func init() {
-	parser.AddCommand("Init", "init", &CommandInit {})
+	parser.AddCommand("init",
+	                  "Initialize a new build environment for a specific distribution",
+	                  "The init command initializes a new debootstrap build environment for a specific distribution. The arguments to the command specify which distributions to initialize and has the following syntax: <dist>/<codename>[/<arch>], where <dist> is the distribution (e.g. ubuntu or debian), <codename> is the distribution codename (e.g. precise or wheezy) and the optional <arch> is the architecture (e.g. i386 or amd64). If <arch> is not specified the architecture of the host machine will be used.",
+	                  &CommandInit {})
 }

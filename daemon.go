@@ -144,5 +144,8 @@ func (x *CommandDaemon) Execute(args []string) error {
 }
 
 func init() {
-	parser.AddCommand("Daemon", "daemon", &CommandDaemon{})
+	parser.AddCommand("daemon",
+	                  "Run the autobuild build daemon",
+	                  "The daemon command runs the autobuild build daemon. The build daemon performs several tasks. First, it manages the package queue and listens for client commands to stage or release packages. It also runs a webserver serving the repository contents over http.",
+	                  &CommandDaemon{})
 }

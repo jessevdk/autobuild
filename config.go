@@ -244,5 +244,8 @@ func (x *CommandConfig) Execute(args []string) error {
 }
 
 func init() {
-	parser.AddCommand("Config", "config", &CommandConfig {})
+	parser.AddCommand("config",
+	                  "Get or set configuration settings",
+	                  "The config command can be used to get or set configuration settings. Without any arguments, all the current configuration settings are listed. You can list specific values of configuration settings by providing one or more setting names as arguments. Finally, to set a configuration value, use `setting=value` as an argument.",
+	                  &CommandConfig {})
 }

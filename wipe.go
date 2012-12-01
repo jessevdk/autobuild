@@ -277,5 +277,8 @@ func (x *CommandWipe) Execute(args []string) error {
 }
 
 func init() {
-	parser.AddCommand("Wipe", "wipe", &CommandWipe{})
+	parser.AddCommand("wipe",
+	                  "Remove a build environment (undo init)",
+	                  "The wipe command performs the opposite of the `autobuild init' command. It effectively removes the specified build environment as well as the repository (if it exists). See `autobuild init --help' for information on how to specify the build environment to update. NOTE: if no arguments are given, the wipe command will remove the whole autobuild directory (-b, --base).",
+	                  &CommandWipe{})
 }

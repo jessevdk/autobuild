@@ -462,5 +462,8 @@ func (x *CommandInstall) Execute(args []string) error {
 }
 
 func init() {
-	parser.AddCommand("Install", "install", &CommandInstall{})
+	parser.AddCommand("install",
+	                  "Install all dependencies and first time configuration of autobuild",
+	                  "The install command uses apt-get to make sure you have all the necessary dependencies installed (e.g. cowbuilder, reprepro). It then performs a first-time configuration, creating the autobuild directory structure at (-b, --base) and configuring the main settings. Note that you can call the install command several times to reconfigure autobuild.",
+	                  &CommandInstall{})
 }

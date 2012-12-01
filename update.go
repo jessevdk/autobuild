@@ -73,5 +73,8 @@ func (x *CommandUpdate) Execute(args []string) error {
 }
 
 func init() {
-	parser.AddCommand("Update", "update", &CommandUpdate{})
+	parser.AddCommand("update",
+	                  "Update a build environment",
+	                  "The update command updates a previously intialized build environment (using `autobuild init'). This is a wrapper for pbuilder --update which will basicly upgrade any installed packages to their latest version. See `autobuild init --help' for information on how to specify the build environment to update.",
+	                  &CommandUpdate{})
 }
