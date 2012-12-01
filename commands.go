@@ -3,7 +3,6 @@ package main
 import (
 	"path"
 	"os"
-	"fmt"
 )
 
 type DaemonCommands struct {
@@ -47,36 +46,36 @@ func (x *IncomingPackage) Matches(info *DistroBuildInfo) bool {
 }
 
 func (x *DaemonCommands) Stage(archive *Archive, reply *GeneralReply) error {
-	if building != nil && path.Base(building.StageFile) == path.Base(archive.Filename) {
-		return fmt.Errorf("The package `%s' is currently building already...",
-		                  path.Base(archive.Filename))
-	}
+	return builder.Stage(path.Base(archive.Filename), func (b *PackageBuilder) (*PackageInfo, error) {
+		// Create stage dir if necessary
+		stagedir := path.Join(options.Base, "stage")
+		os.MkdirAll(stagedir, 0755)
 
-	// Create stage dir if necessary
-	stagedir := path.Join(options.Base, "stage")
-	os.MkdirAll(stagedir, 0755)
+		// Write stage file data there
+		basename := path.Base(archive.Filename)
+		full := path.Join(stagedir, basename)
 
-	// Write stage file data there
-	basename := path.Base(archive.Filename)
-	full := path.Join(stagedir, basename)
+		f, err := os.OpenFile(full, os.O_CREATE | os.O_EXCL | os.O_WRONLY, 0644)
 
-	f, err := os.OpenFile(full, os.O_CREATE | os.O_EXCL | os.O_WRONLY, 0644)
+		if err != nil {
+			return nil, err
+		}
 
-	if err != nil {
-		return err
-	}
+		_, err = f.Write(archive.Data)
 
-	_, err = f.Write(archive.Data)
+		f.Close()
 
-	f.Close()
+		if err != nil {
+			os.Remove(full)
+			return nil, err
+		}
 
-	if err != nil {
-		os.Remove(full)
-		return err
-	}
+		if err != nil {
+			return nil, err
+		}
 
-	queue <- NewPackageInfo(full, archive.Uid)
-	return nil
+		return NewPackageInfo(full, archive.Uid), nil
+	})
 }
 
 func (x *DaemonCommands) makeIncomingPackage(key string, d *DistroBuildInfo) IncomingPackage {
@@ -95,23 +94,25 @@ func (x *DaemonCommands) makeIncomingPackage(key string, d *DistroBuildInfo) Inc
 }
 
 func (x *DaemonCommands) Incoming(incoming *Incoming, reply *IncomingReply) error {
-	for _, res := range results {
-		if res.Info.Uid != incoming.Uid {
-			continue
+	return builder.Do(func (b *PackageBuilder) error {
+		for _, res := range b.FinishedPackages {
+			if res.Info.Uid != incoming.Uid {
+				continue
+			}
+
+			for k, v := range res.Source {
+				p := x.makeIncomingPackage(k, v)
+				reply.Packages = append(reply.Packages, p)
+			}
+
+			for k, v := range res.Binaries {
+				p := x.makeIncomingPackage(k, v)
+				reply.Packages = append(reply.Packages, p)
+			}
 		}
 
-		for k, v := range res.Source {
-			p := x.makeIncomingPackage(k, v)
-			reply.Packages = append(reply.Packages, p)
-		}
-
-		for k, v := range res.Binaries {
-			p := x.makeIncomingPackage(k, v)
-			reply.Packages = append(reply.Packages, p)
-		}
-	}
-
-	return nil
+		return nil
+	})
 }
 
 func (x *DaemonCommands) doRelease(info *DistroBuildInfo) error {
@@ -137,56 +138,55 @@ func (x *DaemonCommands) doRelease(info *DistroBuildInfo) error {
 }
 
 func (x *DaemonCommands) Release(release *Release, reply *GeneralReply) error {
-	resultsMutex.Lock()
-	defer resultsMutex.Unlock()
+	return builder.Do(func (b *PackageBuilder) error {
+		runReproMutex.Lock()
 
-	runReproMutex.Lock()
+		distros := make(map[string]Distribution)
 
-	distros := make(map[string]Distribution)
+		resultscp := b.FinishedPackages
+		b.FinishedPackages = make([]*BuildInfo, 0, len(resultscp))
+		var err error
 
-	resultscp := results
-	results := make([]*BuildInfo, 0, len(resultscp))
-	var err error
+		for _, res := range resultscp {
+			if res.Info.Uid != release.Uid {
+				b.FinishedPackages = append(b.FinishedPackages, res)
+				continue
+			}
 
-	for _, res := range resultscp {
-		if res.Info.Uid != release.Uid {
-			results = append(results, res)
-			continue
-		}
+			for _, f := range release.Packages {
+				if v, ok := res.Source[f.Key]; ok && f.Matches(v) {
+					if err = x.doRelease(v); err != nil {
+						break
+					}
 
-		for _, f := range release.Packages {
-			if v, ok := res.Source[f.Key]; ok && f.Matches(v) {
-				if err = x.doRelease(v); err != nil {
-					break
+					distros[v.Distribution.SourceName()] = v.Distribution
+
+					delete(res.Source, f.Key)
+				} else if v, ok := res.Binaries[f.Key]; ok && f.Matches(v) {
+					if err = x.doRelease(v); err != nil {
+						break
+					}
+
+					distros[v.Distribution.SourceName()] = v.Distribution
+					delete(res.Binaries, f.Key)
 				}
+			}
 
-				distros[v.Distribution.SourceName()] = v.Distribution
+			if len(res.Source) != 0 || len(res.Binaries) != 0 {
+				b.FinishedPackages = append(b.FinishedPackages, res)
+			}
 
-				delete(res.Source, f.Key)
-			} else if v, ok := res.Binaries[f.Key]; ok && f.Matches(v) {
-				if err = x.doRelease(v); err != nil {
-					break
-				}
-
-				distros[v.Distribution.SourceName()] = v.Distribution
-				delete(res.Binaries, f.Key)
+			if err != nil {
+				break
 			}
 		}
 
-		if len(res.Source) != 0 || len(res.Binaries) != 0 {
-			results = append(results, res)
+		runReproMutex.Unlock()
+
+		for _, v := range distros {
+			runRepRepro(&v)
 		}
 
-		if err != nil {
-			break
-		}
-	}
-
-	runReproMutex.Unlock()
-
-	for _, v := range distros {
-		runRepRepro(&v)
-	}
-
-	return nil
+		return nil
+	})
 }

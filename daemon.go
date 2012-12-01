@@ -8,7 +8,6 @@ import (
 	"path"
 	"syscall"
 	"os/user"
-	"encoding/json"
 )
 
 type CommandDaemon struct {
@@ -28,77 +27,9 @@ func (x *CommandDaemon) verifyCredentials(uid uint32) bool {
 	return true
 }
 
-type State struct {
-	BuildInfo []*BuildInfo
-	Queue []*PackageInfo
-}
-
-func (x *CommandDaemon) loadState() {
-	filename := path.Join(options.Base, "run", "autobuild.state")
-	f, err := os.Open(filename)
-
-	if err != nil {
-		return
-	}
-
-	defer f.Close()
-
-	state := &State {}
-
-	dec := json.NewDecoder(f)
-
-	if err := dec.Decode(state); err != nil {
-		return
-	}
-
-	resultsMutex.Lock()
-	results = state.BuildInfo
-	resultsMutex.Unlock()
-
-	for _, q := range state.Queue {
-		queue <- q
-	}
-}
-
-func (x *CommandDaemon) saveState() {
-	filename := path.Join(options.Base, "run", "autobuild.state")
-	f, err := os.Create(filename)
-
-	if err != nil {
-		return
-	}
-
-	defer f.Close()
-
-	q := make([]*PackageInfo, 0)
-	close(queue)
-
-	if building != nil {
-		q = append(q, building)
-	}
-
-	for info := range queue {
-		q = append(q, info)
-	}
-
-	resultsMutex.Lock()
-	defer resultsMutex.Unlock()
-
-	state := &State {
-		BuildInfo: results,
-		Queue: q,
-	}
-
-	enc := json.NewEncoder(f)
-
-	if err := enc.Encode(state); err != nil {
-		return
-	}
-}
-
 func (x *CommandDaemon) Execute(args []string) error {
-	x.loadState()
-	defer x.saveState()
+	builder.Load()
+	defer builder.Save()
 
 	syscall.RawSyscall(syscall.SYS_IOCTL, 0, uintptr(syscall.TIOCNOTTY), 0)
 
@@ -116,21 +47,10 @@ func (x *CommandDaemon) Execute(args []string) error {
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
 	defer os.Remove(path.Join(options.Base, "run", "autobuild.sock"))
+	go builder.Run()
 
 	for {
 		select {
-		case pack := <-queue:
-			if err := buildPackage(pack); err != nil {
-				if options.Verbose {
-					fmt.Printf("Error during building of `%s': %s...\n",
-					           pack.Name,
-					           err)
-				}
-			} else if options.Verbose {
-				fmt.Printf("Finished build of `%s'...\n", pack.Name)
-			}
-
-			os.Remove(pack.StageFile)
 		case s := <-sig:
 			if s == syscall.SIGINT {
 				return errors.New("")
