@@ -122,6 +122,16 @@ func (x *PackageBuilder) Run() {
 			if x.CurrentlyBuilding != nil {
 				binfo := x.buildPackage()
 
+				if options.Verbose {
+					fmt.Printf("Finished building `%s'", path.Base(binfo.Info.StageFile))
+
+					if binfo.Error != nil {
+						fmt.Println(", failed: %s\n", binfo.Error)
+					} else {
+						fmt.Println(": success")
+					}
+				}
+
 				x.Do(func (b *PackageBuilder) error {
 					b.FinishedPackages = append(b.FinishedPackages, binfo)
 					b.CurrentlyBuilding = nil
