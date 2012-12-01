@@ -107,9 +107,7 @@ func (x *CommandInstall) listSignKeys() ([]SignKey, error) {
 		args = append(args, "-q")
 	}
 
-	cmd := MakeCommand("gpg", args...)
-
-	ret, err := cmd.Output()
+	ret, err := RunOutputCommand("gpg", args...)
 
 	if err != nil {
 		return nil, err
@@ -293,9 +291,7 @@ func (x *CommandInstall) configureSignKey() error {
 			args = append(args, "-q")
 		}
 
-		cmd = MakeCommand("gpg", args...)
-
-		s, err := cmd.Output()
+		s, err := RunOutputCommand("gpg", args...)
 
 		if err != nil {
 			return err
