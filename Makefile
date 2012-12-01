@@ -1,7 +1,11 @@
 TARGET = autobuild
-SOURCES = $(wildcard *.go)
+ALL_SOURCES = $(wildcard *.go)
 DESTDIR =
 PREFIX = /usr/local
+
+# Remove man.go
+SOURCES = $(subst man.go,,$(ALL_SOURCES))
+MAN_SOURCES = $(subst autobuild.go,man.go,$(SOURCES))
 
 INSTALLDIR = $(DESTDIR)$(PREFIX)
 
@@ -18,16 +22,35 @@ endif
 GC = go
 
 RESOURCES = $(wildcard resources/*)
-
 SECTIONS = $(foreach i,$(RESOURCES),--add-section autobuild_res_$(notdir $(i))=$(i))
+
+MANINSTALLDIR = $(INSTALLDIR)/share/man/man1
+
+all: $(TARGET) $(TARGET).man
 
 $(TARGET): $(SOURCES) $(RESOURCES)
 	$(call vecho,GC,$@) $(GC) build -o $@ $(SOURCES) && \
 	objcopy $(SECTIONS) $(TARGET)
 
-clean:
-	$(call vecho,CLEAN,$(TARGET)) rm -f $(TARGET)
+CLEANFILES = $(TARGET) $(TARGET).man .gen-man
 
-install:
+clean:
+	$(call vecho,CLEAN,$(CLEANFILES)) rm -f $(CLEANFILES)
+
+install: $(TARGET) $(TARGET).man
 	test -z "$(INSTALLDIR)/bin" || mkdir -p "$(INSTALLDIR)/bin" && \
-	install -c $(TARGET) "$(INSTALLDIR)/bin"
+	install -c $(TARGET) "$(INSTALLDIR)/bin"; \
+	test -z "$(MANINSTALLDIR)" || mkdir -p "$(MANINSTALLDIR)" && \
+	install -c -m 644 $(TARGET).man "$(MANINSTALLDIR)/$(TARGET).1"
+
+uninstall:
+	rm -f "$(INSTALLDIR)/bin/$(TARGET)"; \
+	rm -f "$(MANINSTALLDIR)/$(TARGET).1"
+
+.gen-man: $(MAN_SOURCES)
+	$(call vecho,GC,$@) $(GC) build -o $@ $(MAN_SOURCES)
+
+$(TARGET).man: .gen-man
+	$(call vecho,MAN,$@) ./.gen-man > $@
+
+.PHONY: install clean all
