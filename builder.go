@@ -55,7 +55,9 @@ type PackageBuilder struct {
 	Mutex sync.Mutex
 }
 
-var builder PackageBuilder
+var builder = PackageBuilder {
+	notifyQueue: make(chan bool, 1024),
+}
 
 var packageInfoRegex *regexp.Regexp
 var changelogSubstituteRegex *regexp.Regexp
