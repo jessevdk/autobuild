@@ -23,6 +23,7 @@ type DistroBuildInfo struct {
 	ChangesFiles []string
 	Files       []string
 	Log      *bytes.Buffer
+	Error    error
 }
 
 type BuildInfo struct {
@@ -30,11 +31,10 @@ type BuildInfo struct {
 	Package *ExtractedPackage
 
 	BuildResultsDir string
+	Error error
 
 	Source   map[string]*DistroBuildInfo
 	Binaries map[string]*DistroBuildInfo
-
-	Error    error
 }
 
 type ExtractedPackage struct {
@@ -79,7 +79,7 @@ func (x *PackageBuilder) Stage(pname string, fn func (x *PackageBuilder) (*Packa
 
 		// Check results
 		for _, binfo := range b.FinishedPackages {
-			if binfo.Info.MatchStageFile(pname) && binfo.Error == nil {
+			if binfo.Info.MatchStageFile(pname) {
 				return fmt.Errorf("The file `%s' has already been built and is waiting to be released. Use `autobuild release' to release or discard before building again.")
 			}
 		}
@@ -123,13 +123,7 @@ func (x *PackageBuilder) Run() {
 				binfo := x.buildPackage()
 
 				if options.Verbose {
-					fmt.Printf("Finished building `%s'", path.Base(binfo.Info.StageFile))
-
-					if binfo.Error != nil {
-						fmt.Println(", failed: %s\n", binfo.Error)
-					} else {
-						fmt.Println(": success")
-					}
+					fmt.Printf("Finished building `%s'\n", path.Base(binfo.Info.StageFile))
 				}
 
 				x.Do(func (b *PackageBuilder) error {
@@ -158,7 +152,7 @@ func (x *PackageBuilder) extractPackage(info *PackageInfo) (*ExtractedPackage, e
 	tdir, err := ioutil.TempDir(tmp, "autobuild")
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to create temporary directory to extract package: %s", err)
 	}
 
 	z := "gz"
@@ -173,7 +167,7 @@ func (x *PackageBuilder) extractPackage(info *PackageInfo) (*ExtractedPackage, e
 	// Extract archive
 	if err := RunCommandIn(tdir, "tar", "-x"+z+"f", info.StageFile); err != nil {
 		os.RemoveAll(tdir)
-		return nil, err
+		return nil, fmt.Errorf("Failed to extract staged package `%s': %s", path.Base(info.StageFile), err)
 	}
 
 	// Look for options
@@ -199,7 +193,9 @@ func (x *PackageBuilder) extractPackage(info *PackageInfo) (*ExtractedPackage, e
 
 	if _, err := os.Stat(origgz); err != nil {
 		os.RemoveAll(tdir)
-		return nil, err
+
+		return nil, fmt.Errorf("The stage file `%s' does not contain the original tarball `%s'",
+		                       path.Base(info.StageFile), path.Base(origgz))
 	}
 
 	if options.Verbose {
@@ -210,7 +206,9 @@ func (x *PackageBuilder) extractPackage(info *PackageInfo) (*ExtractedPackage, e
 
 	if _, err := os.Stat(origgz); err != nil {
 		os.RemoveAll(tdir)
-		return nil, err
+
+		return nil, fmt.Errorf("The stage file `%s' does not contain the debian diff `%s'",
+		                       path.Base(info.StageFile), path.Base(diffgz))
 	}
 
 	if options.Verbose {
@@ -257,7 +255,7 @@ func (x *PackageBuilder) substituteUnreleased(changelog string, distro *Distribu
 	b, err := ioutil.ReadFile(changelog)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to open debian/changelog for substitution: %s", err)
 	}
 
 	repl := fmt.Sprintf("-${1}%s0) %s", distro.CodeName, distro.CodeName)
@@ -266,7 +264,11 @@ func (x *PackageBuilder) substituteUnreleased(changelog string, distro *Distribu
 	ret := changelogSubstituteRegex.ReplaceAllString(string(b), repl)
 
 	// Write changelog back
-	return ioutil.WriteFile(changelog, []byte(ret), 0644)
+	if err := ioutil.WriteFile(changelog, []byte(ret), 0644); err != nil {
+		return fmt.Errorf("Failed to write debian/changelog for substitution: %s", err)
+	}
+
+	return nil
 }
 
 func (x *PackageBuilder) readLines(rd *bufio.Reader, fn func (line string) error) error {
@@ -347,13 +349,17 @@ func (x *PackageBuilder) moveResults(info *DistroBuildInfo, resdir string, rmfil
 	d, err := os.Open(resdir)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to open results directory `%s': %s",
+		                  resdir,
+		                  err)
 	}
 
 	names, err := d.Readdirnames(0)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to read build results from `%s': %s",
+		                  resdir,
+		                  err)
 	}
 
 	rmmapping := make(map[string]struct{})
@@ -370,19 +376,22 @@ func (x *PackageBuilder) moveResults(info *DistroBuildInfo, resdir string, rmfil
 
 		// Remove filename if the target was already built
 		if _, ok := rmmapping[target]; ok {
-			if err := os.Remove(filename); err != nil {
-				return err
-			}
+			os.Remove(filename)
 		} else {
 			if err := os.Rename(filename, target); err != nil {
-				return err
+				return fmt.Errorf("Failed to move build result `%s' to target location `%s': %s",
+				                  filename,
+				                  incoming,
+				                  err)
 			}
 
 			if strings.HasSuffix(target, chsuf) {
 				info.Changes = target[0:len(target)-len(chsuf)]
 
 				if err := x.parseChanges(info); err != nil {
-					return err
+					return fmt.Errorf("Failed to parse changes file `%s': %s",
+					                  info.Changes + ".changes",
+					                  err)
 				}
 			}
 
@@ -406,12 +415,15 @@ func (x *PackageBuilder) extractSourcePackage(info *BuildInfo, distro *Distribut
 
 	// Extract original orig.tar.gz
 	if err := RunCommandIn(pack.Dir, "tar", "-xzf", pack.OrigGz); err != nil {
-		return err
+		return fmt.Errorf("Failed to extract original tarball `%s': %s",
+		                  path.Base(pack.OrigGz), err)
 	}
 
 	// Check if it was extracted correctly
 	if _, err := os.Stat(pkgdir); err != nil {
-		return err
+		return fmt.Errorf("Did not find original source `%s' after extract original tarball `%s'",
+		                  path.Base(pkgdir),
+		                  path.Base(pack.OrigGz))
 	}
 
 	if options.Verbose {
@@ -422,7 +434,8 @@ func (x *PackageBuilder) extractSourcePackage(info *BuildInfo, distro *Distribut
 	dgz, err := os.Open(pack.DiffGz)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to open debian diff `%s': %s",
+		                  path.Base(pack.DiffGz), err)
 	}
 
 	defer dgz.Close()
@@ -430,7 +443,8 @@ func (x *PackageBuilder) extractSourcePackage(info *BuildInfo, distro *Distribut
 	rd, err := gzip.NewReader(dgz)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to extract debian diff `%s': %s",
+		                  path.Base(pack.DiffGz), err)
 	}
 
 	if options.Verbose {
@@ -440,14 +454,18 @@ func (x *PackageBuilder) extractSourcePackage(info *BuildInfo, distro *Distribut
 	cmd := MakeCommandIn(pkgdir, "patch", "-p1")
 	cmd.Stdin = rd
 
-	if err := cmd.Run(); err != nil {
-		return err
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("Failed to run debian debian patch: %s",
+		                  string(out))
 	}
 
 	dgz.Close()
 
 	if _, err := os.Stat(path.Join(pkgdir, "debian")); err != nil {
-		return err
+		return fmt.Errorf("Could not find `debian' directory after applying debian patch")
 	}
 
 	// Apply distribution specific patches
@@ -456,8 +474,14 @@ func (x *PackageBuilder) extractSourcePackage(info *BuildInfo, distro *Distribut
 			fmt.Printf("Apply distribution specific patch: %v...\n", patch)
 		}
 
-		if err := RunCommandIn(pkgdir, "patch", "-p1", "-i", patch); err != nil {
-			return err
+		cmd := MakeCommandIn(pkgdir, "patch", "-p1", "-i", patch)
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("Failed to apply distribution specific patch `%s': %s",
+			                  path.Base(patch),
+			                  string(out))
 		}
 	}
 
@@ -491,11 +515,11 @@ func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distributio
 		fmt.Printf("Building source package...\n")
 	}
 
-	if err := x.extractSourcePackage(info, distro); err != nil {
-		return err
-	}
+	src.Error = x.extractSourcePackage(info, distro)
 
-
+	if src.Error != nil {
+		info.Source[distro.SourceName()] = src
+		return src.Error
 	}
 
 	pkgdir := path.Join(info.Package.Dir, fmt.Sprintf("%s-%s", info.Info.Name, info.Info.Version))
@@ -529,19 +553,17 @@ func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distributio
 		fmt.Printf("Run pdebuild for source in `%s'...\n", info.Package.Dir)
 	}
 
-	if err := cmd.Run(); err != nil {
+	src.Error = cmd.Run()
 
-		// Still move the log
+	if src.Error != nil {
 		os.RemoveAll(info.BuildResultsDir)
-		return err
+	} else {
+		// Move build results to incoming
+		x.moveResults(src, info.BuildResultsDir)
 	}
 
-
-	// Move build results to incoming
-	x.moveResults(src, info.BuildResultsDir)
-
 	info.Source[distro.SourceName()] = src
-	return nil
+	return src.Error
 }
 
 func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distribution, arch string) error {
@@ -585,17 +607,17 @@ func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distributi
 	cmd.Stdout = wr
 	cmd.Stderr = wr
 
-	if err := cmd.Run(); err != nil {
+	bin.Error = cmd.Run()
+
+	if bin.Error != nil {
 		os.RemoveAll(info.BuildResultsDir)
-		return err
+	} else {
+		// Move build results to incoming (skipping source files)
+		x.moveResults(bin, info.BuildResultsDir, info.Source[distro.SourceName()].Files...)
 	}
 
-
-	// Move build results to incoming (skipping source files)
-	x.moveResults(bin, info.BuildResultsDir, info.Source[distro.SourceName()].Files...)
 	info.Binaries[distro.BinaryName(arch)] = bin
-
-	return nil
+	return bin.Error
 }
 
 func (x *PackageBuilder) buildPackage() *BuildInfo {
@@ -609,7 +631,6 @@ func (x *PackageBuilder) buildPackage() *BuildInfo {
 		Info:       info,
 		Source:     make(map[string]*DistroBuildInfo),
 		Binaries:   make(map[string]*DistroBuildInfo),
-		Error:      nil,
 	}
 
 	pack, err := x.extractPackage(info)
@@ -632,15 +653,11 @@ func (x *PackageBuilder) buildPackage() *BuildInfo {
 	// For each distribution
 	for _, distro := range pack.Options.Distributions {
 		if err := x.buildSourcePackage(binfo, distro); err != nil {
-			binfo.Error = err
 			return binfo
 		}
 
 		for _, arch := range distro.Architectures {
-			if err := x.buildBinaryPackages(binfo, distro, arch); err != nil {
-				binfo.Error = err
-				return binfo
-			}
+			x.buildBinaryPackages(binfo, distro, arch)
 		}
 	}
 
