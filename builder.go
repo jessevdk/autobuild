@@ -13,22 +13,22 @@ import (
 	"sync"
 	"encoding/gob"
 	"encoding/json"
+	"bytes"
 )
 
 type DistroBuildInfo struct {
 	IncomingDir string
-	ResultsDir  string
 	Changes     string
 	Distribution Distribution
 	ChangesFiles []string
 	Files       []string
+	Log      *bytes.Buffer
 }
 
 type BuildInfo struct {
 	Info    *PackageInfo
 	Package *ExtractedPackage
 
-	ResultsDir      string
 	BuildResultsDir string
 
 	Source   map[string]*DistroBuildInfo
@@ -477,8 +477,8 @@ func (x *PackageBuilder) extractSourcePackage(info *BuildInfo, distro *Distribut
 
 func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distribution) error {
 	src := &DistroBuildInfo{
-		ResultsDir:  path.Join(info.ResultsDir, fmt.Sprintf("%s-source", distro.CodeName)),
 		IncomingDir: path.Join(options.Base, "incoming", distro.Os, distro.CodeName),
+		Log: &bytes.Buffer {},
 
 		Distribution: Distribution {
 			Os: distro.Os,
@@ -495,15 +495,7 @@ func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distributio
 		return err
 	}
 
-	// Make package local results dir
-	os.MkdirAll(src.ResultsDir, 0755)
 
-	llogpath := path.Join(src.ResultsDir, "log")
-	llog, err := os.Create(llogpath)
-
-	if err != nil {
-		os.RemoveAll(src.ResultsDir)
-		return err
 	}
 
 	pkgdir := path.Join(info.Package.Dir, fmt.Sprintf("%s-%s", info.Info.Name, info.Info.Version))
@@ -525,9 +517,9 @@ func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distributio
 	var wr io.Writer
 
 	if options.Verbose {
-		wr = io.MultiWriter(llog, os.Stdout)
+		wr = io.MultiWriter(src.Log, os.Stdout)
 	} else {
-		wr = llog
+		wr = src.Log
 	}
 
 	cmd.Stdout = wr
@@ -538,14 +530,12 @@ func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distributio
 	}
 
 	if err := cmd.Run(); err != nil {
-		llog.Close()
 
 		// Still move the log
 		os.RemoveAll(info.BuildResultsDir)
 		return err
 	}
 
-	llog.Close()
 
 	// Move build results to incoming
 	x.moveResults(src, info.BuildResultsDir)
@@ -556,25 +546,15 @@ func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distributio
 
 func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distribution, arch string) error {
 	bin := &DistroBuildInfo{
-		ResultsDir:  path.Join(info.ResultsDir, fmt.Sprintf("%s-%s", distro.CodeName, arch)),
 		IncomingDir: path.Join(options.Base, "incoming", distro.Os, distro.CodeName),
+
+		Log: &bytes.Buffer {},
 
 		Distribution: Distribution {
 			Os: distro.Os,
 			CodeName: distro.CodeName,
 			Architectures: []string {arch},
 		},
-	}
-
-	// Make package local results dir
-	os.MkdirAll(bin.ResultsDir, 0755)
-
-	llogpath := path.Join(bin.ResultsDir, "log")
-	llog, err := os.Create(llogpath)
-
-	if err != nil {
-		os.RemoveAll(bin.ResultsDir)
-		return err
 	}
 
 	pkgdir := path.Join(info.Package.Dir, fmt.Sprintf("%s-%s", info.Info.Name, info.Info.Version))
@@ -597,21 +577,19 @@ func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distributi
 	var wr io.Writer
 
 	if options.Verbose {
-		wr = io.MultiWriter(llog, os.Stdout)
+		wr = io.MultiWriter(bin.Log, os.Stdout)
 	} else {
-		wr = llog
+		wr = bin.Log
 	}
 
 	cmd.Stdout = wr
 	cmd.Stderr = wr
 
 	if err := cmd.Run(); err != nil {
-		llog.Close()
 		os.RemoveAll(info.BuildResultsDir)
 		return err
 	}
 
-	llog.Close()
 
 	// Move build results to incoming (skipping source files)
 	x.moveResults(bin, info.BuildResultsDir, info.Source[distro.SourceName()].Files...)
@@ -629,15 +607,10 @@ func (x *PackageBuilder) buildPackage() *BuildInfo {
 
 	binfo := &BuildInfo{
 		Info:       info,
-		ResultsDir: path.Join(options.Base, "results", fmt.Sprintf("%s-%s", info.Name, info.Version)),
 		Source:     make(map[string]*DistroBuildInfo),
 		Binaries:   make(map[string]*DistroBuildInfo),
 		Error:      nil,
 	}
-
-	// Remove previous resdir if needed
-	os.RemoveAll(binfo.ResultsDir)
-	os.MkdirAll(binfo.ResultsDir, 0755)
 
 	pack, err := x.extractPackage(info)
 

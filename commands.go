@@ -132,8 +132,6 @@ func (x *DaemonCommands) doRelease(info *DistroBuildInfo) error {
 		}
 	}
 
-	// Then we remove everything from that thingie
-	os.RemoveAll(info.ResultsDir)
 	return nil
 }
 
