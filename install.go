@@ -395,6 +395,7 @@ func (x *CommandInstall) Execute(args []string) error {
 		"gzip",
 		"xz-utils",
 		"patch",
+		"cdbs",
 	}
 
 	aptargs := []string{
