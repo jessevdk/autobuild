@@ -249,9 +249,9 @@ func (x *CommandInit) Execute(args []string) error {
 	}
 
 	cmdargs := []string{
+		"--create",
 		"--configfile",
 		path.Join(options.Base, "etc", "pbuilderrc"),
-		"--create",
 	}
 
 	for _, distro := range distros {
