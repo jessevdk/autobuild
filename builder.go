@@ -80,14 +80,14 @@ func (x *PackageBuilder) Stage(pname string, fn func (x *PackageBuilder) (*Packa
 		// Check results
 		for _, binfo := range b.FinishedPackages {
 			if binfo.Info.MatchStageFile(pname) {
-				return fmt.Errorf("The file `%s' has already been built and is waiting to be released. Use `autobuild release' to release or discard before building again.")
+				return fmt.Errorf("The file `%s' has already been built and is waiting to be released. Use `autobuild release' to release or discard before building again.", pname)
 			}
 		}
 
 		// Check queue
 		for _, info := range b.PackageQueue {
 			if info.MatchStageFile(pname) {
-				return fmt.Errorf("The file `%s' has already been queued to be built. Use `autobuild queue' to remove the queued package first.")
+				return fmt.Errorf("The file `%s' has already been queued to be built. Use `autobuild queue' to remove the queued package first.", pname)
 			}
 		}
 
