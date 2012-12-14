@@ -146,6 +146,8 @@ func (x *PackageBuilder) extractPackage(info *PackageInfo) (*ExtractedPackage, e
 		fmt.Printf("Extracting package `%s'...\n", info.Name)
 	}
 
+	defer os.Remove(info.StageFile)
+
 	tmp := path.Join(options.Base, "tmp")
 	os.MkdirAll(tmp, 0755)
 
