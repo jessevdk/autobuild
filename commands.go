@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"path"
 	"os"
 )
@@ -127,8 +128,30 @@ func (x *DaemonCommands) doRelease(info *DistroBuildInfo) error {
 	// To release, we move all the registered files to the reprepro
 	// incoming
 	for _, f := range info.Files {
-		if err := os.Rename(f, path.Join(incomingdir, path.Base(f))); err != nil {
-			return err
+		target := path.Join(incomingdir, path.Base(f))
+		
+		if err := os.Rename(f, target); err != nil {
+			// Try copy instead
+			fr, err := os.Open(f)
+
+			if err != nil {
+				return err
+			}
+
+			defer fr.Close()
+			os.MkdirAll(path.Dir(target), 0755)
+
+			fw, err := os.Create(target)
+
+			if err != nil {
+				return err
+			}
+
+			defer fw.Close()
+
+			if _, err := io.Copy(fw, fr); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -185,6 +208,6 @@ func (x *DaemonCommands) Release(release *Release, reply *GeneralReply) error {
 			runRepRepro(&v)
 		}
 
-		return nil
+		return err
 	})
 }
