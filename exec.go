@@ -45,6 +45,16 @@ func MakeCommand(name string, arg ...string) *exec.Cmd {
 	return prepareCommand(name, arg...)
 }
 
+func MakeInheritedCommand(name string, arg ...string) *exec.Cmd {
+	cmd := exec.Command(name, arg...)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	return cmd
+}
+
 func MakeCommandIn(wd string, name string, arg ...string) *exec.Cmd {
 	ret := prepareCommand(name, arg...)
 
