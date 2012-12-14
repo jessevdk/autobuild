@@ -23,9 +23,9 @@ func (x *CommandUpdate) Execute(args []string) error {
 	}
 
 	cmdargs := []string{
+		"--update",
 		"--configfile",
 		path.Join(options.Base, "etc", "pbuilderrc"),
-		"--update",
 	}
 
 	for _, distro := range distros {
