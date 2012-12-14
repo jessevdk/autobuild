@@ -64,8 +64,7 @@ func (x *CommandGitPreparePackage) updateChangelog(name string, version string) 
 		editor = "vim"
 	}
 
-	cmd := MakeCommand(editor, "debian/changelog")
-	cmd.Stdin = os.Stdin
+	cmd := MakeInheritedCommand(editor, "debian/changelog")
 
 	if err := cmd.Run(); err != nil {
 		return err
@@ -75,8 +74,7 @@ func (x *CommandGitPreparePackage) updateChangelog(name string, version string) 
 		return err
 	}
 
-	cmd = MakeCommand("git", "commit", "-e", "-m", fmt.Sprintf("Release version %s", version))
-	cmd.Stdin = os.Stdin
+	cmd = MakeInheritedCommand("git", "commit", "-e", "-m", fmt.Sprintf("Release version %s", version))
 
 	if err := cmd.Run(); err != nil {
 		return err
@@ -212,11 +210,21 @@ func (x *CommandGitPreparePackage) Execute(args []string) error {
 		xz.Stdout, _ = os.Create(fmt.Sprintf("%s/patches/%s.diff.xz", tmp, branch))
 		xz.Stdin, _ = cmd.StdoutPipe()
 
-		go cmd.Run()
-		go xz.Run()
+		if err := cmd.Start(); err != nil {
+			return err
+		}
 
-		cmd.Wait()
-		xz.Wait()
+		if err := xz.Start(); err != nil {
+			return err
+		}
+
+		if err := cmd.Wait(); err != nil {
+			return err
+		}
+
+		if err := xz.Wait(); err != nil {
+			return err
+		}
 
 		files = append(files, fmt.Sprintf("patches/%s.diff.xz", branch))
 	}
@@ -255,11 +263,21 @@ func (x *CommandGitPreparePackage) Execute(args []string) error {
 	gzipcmd.Stdin, _ = diffcmd.StdoutPipe()
 	gzipcmd.Stdout, _ = os.Create(path.Join(tmp, diffgz))
 
-	go diffcmd.Run()
-	go gzipcmd.Run()
+	if err := diffcmd.Start(); err != nil {
+		return err
+	}
 
-	diffcmd.Wait()
-	gzipcmd.Wait()
+	if err := gzipcmd.Start(); err != nil {
+		return err
+	}
+
+	if err := diffcmd.Wait(); err != nil {
+		return err
+	}
+
+	if err := gzipcmd.Wait(); err != nil {
+		return err
+	}
 
 	targs := []string {
 		"-C",
@@ -271,8 +289,9 @@ func (x *CommandGitPreparePackage) Execute(args []string) error {
 	}
 
 	targs = append(targs, files...)
+	cmd := MakeInheritedCommand("tar", targs...)
 
-	if err := RunCommand("tar", targs...); err != nil {
+	if err := cmd.Run(); err != nil {
 		return err
 	}
 
