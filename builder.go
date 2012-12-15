@@ -836,24 +836,34 @@ func (x *PackageBuilder) Release(ids []uint64) ([]uint64, error) {
 	})
 }
 
-func (x *PackageBuilder) foreachMatchedId(ids []uint64, fn func(info *BuildInfo, key string, binfo *DistroBuildInfo) error) error {
+func (x *PackageBuilder) foreachMatchedId(ids []uint64, fn func(info *BuildInfo, binfo *DistroBuildInfo) error) error {
 	sortedids := Uint64Slice(ids)
 	sortedids.Sort()
 
 	for _, res := range x.FinishedPackages {
-		for k, v := range res.Source {
-			if sortedids.Contains(v.Id) {
-				if err := fn(res, k, v); err != nil {
-					return err
+		sb := []map[string]*DistroBuildInfo{res.Source, res.Binaries}
+
+		for _, m := range sb {
+			delmap := make([]string, 0, len(m))
+
+			var err error
+
+			for k, v := range m {
+				if sortedids.Contains(v.Id) {
+					if err = fn(res, v); err != nil {
+						break
+					}
+
+					delmap = append(delmap, k)
 				}
 			}
-		}
 
-		for k, v := range res.Binaries {
-			if sortedids.Contains(v.Id) {
-				if err := fn(res, k, v); err != nil {
-					return err
-				}
+			for _, k := range delmap {
+				delete(m, k)
+			}
+
+			if err != nil {
+				return err
 			}
 		}
 	}
