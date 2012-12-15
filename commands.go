@@ -2,6 +2,7 @@ package main
 
 import (
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 )
@@ -37,6 +38,61 @@ type IncomingPackage struct {
 
 type IncomingReply struct {
 	Packages []IncomingPackage
+}
+
+type WebQueueService struct {
+	Uid uint32
+}
+
+type WebQueueReply struct {
+	SocketFile string
+	Uid        uint32
+}
+
+type WebQueueServer struct {
+	SocketFile string
+	Closer     chan bool
+	Uid        uint32
+}
+
+var webqueue = map[string]*WebQueueServer{}
+
+func (x *DaemonCommands) WebQueueService(service *WebQueueService, reply *WebQueueReply) error {
+	f, err := ioutil.TempFile("", "autobuild-webqueue")
+
+	if err != nil {
+		return err
+	}
+
+	filename := f.Name()
+	f.Close()
+	os.Remove(filename)
+
+	reply.SocketFile = filename
+
+	closer, err := RunWebQueueService(filename, service.Uid)
+
+	if err != nil {
+		return err
+	}
+
+	webqueue[filename] = &WebQueueServer{
+		SocketFile: filename,
+		Closer:     closer,
+		Uid:        service.Uid,
+	}
+
+	return nil
+}
+
+func (x *DaemonCommands) CloseWebQueueService(reply *WebQueueReply, g *GeneralReply) error {
+	v := webqueue[reply.SocketFile]
+
+	if v != nil && reply.Uid == v.Uid {
+		v.Closer <- true
+	}
+
+	return nil
 }
 
 func (x *IncomingPackage) Matches(info *DistroBuildInfo) bool {
