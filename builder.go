@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -684,6 +685,137 @@ func (x *PackageBuilder) buildPackage() *BuildInfo {
 	}
 
 	return binfo
+}
+
+type Uint64Slice []uint64
+
+func (p Uint64Slice) Len() int {
+	return len(p)
+}
+
+func (p Uint64Slice) Less(i int, j int) bool {
+	return p[i] < p[j]
+}
+
+func (p Uint64Slice) Search(x uint64) int {
+	return sort.Search(len(p), func(i int) bool {
+		return p[i] >= x
+	})
+}
+
+func (p Uint64Slice) Sort() {
+	sort.Sort(p)
+}
+
+func (p Uint64Slice) Swap(i int, j int) {
+	p[i], p[j] = p[j], p[i]
+}
+
+func (p Uint64Slice) Contains(x uint64) bool {
+	i := p.Search(x)
+
+	return i < len(p) && p[i] == x
+}
+
+func (x *PackageBuilder) doRelease(info *DistroBuildInfo) error {
+	incomingdir := path.Join(options.Base,
+		"repository",
+		info.Distribution.Os,
+		"incoming",
+		info.Distribution.CodeName)
+
+	os.MkdirAll(incomingdir, 0755)
+
+	// To release, we move all the registered files to the reprepro
+	// incoming
+	for _, f := range info.Files {
+		if err := os.Rename(f, path.Join(incomingdir, path.Base(f))); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (x *PackageBuilder) Release(ids []uint64) ([]uint64, error) {
+	retval := make([]uint64, 0, len(sortedids))
+
+	return retval, x.Do(func(b *PackageBuilder) error {
+		runReproMutex.Lock()
+
+		distros := make(map[string]Distribution)
+
+		newpkg := make([]*BuildInfo, 0, len(b.FinishedPackages))
+
+		var err error
+
+		for _, res := range resultscp {
+			for k, v := range res.Source {
+				if sortedids.Contains(v.Id) {
+					if err = x.doRelease(v); err == nil {
+						distros[v.Distribution.SourceName()] = v.Distribution
+						delete(res.Source, k)
+
+						retval = append(retval, v.Id)
+					}
+
+					break
+				}
+			}
+
+			for k, v := range res.Binaries {
+				if sortedids.Contains(v.Id) {
+					if err = x.doRelease(v); err == nil {
+						distros[v.Distribution.SourceName()] = v.Distribution
+						delete(res.Binaries, k)
+
+						retval = append(retval, v.Id)
+					}
+				}
+			}
+
+			if len(res.Source) != 0 || len(res.Binaries) != 0 {
+				b.FinishedPackages = append(b.FinishedPackages, res)
+			}
+
+			if err != nil {
+				break
+			}
+		}
+
+		runReproMutex.Unlock()
+
+		for _, v := range distros {
+			runRepRepro(&v)
+		}
+
+		return err
+	})
+}
+
+func (x *PackageBuilder) foreachMatchedId(ids []uint64, fn func(info *BuildInfo, key string, binfo *DistroBuildInfo) error) error {
+	sortedids := Uint64Slice(ids)
+	sortedids.Sort()
+
+	for _, res := range x.FinishedPackages {
+		for k, v := range res.Source {
+			if sortedids.Contains(v.Id) {
+				if err := fn(res, k, v); err != nil {
+					return err
+				}
+			}
+		}
+
+		for k, v := range res.Binaries {
+			if sortedids.Contains(v.Id) {
+				if err := fn(res, k, v); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 type PackageBuilderState struct {
