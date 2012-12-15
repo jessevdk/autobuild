@@ -35,7 +35,7 @@ func (x *CommandConnect) Execute(args []string) error {
 
 func init() {
 	parser.AddCommand("connect",
-		"Connect to the autobuild daemon and relay stdin",
-		"The connect command connects to the autobuild daemon socket and then relays all data on standard in to this connection. When using a remote connection (-r, --remote) for client commands (such as stage or release), a ssh connection is made to the remote and `autobuild connect' is executed allowing the remote call with proper authentication.",
+		"Connect to a the autobuild socket and relay stdin",
+		"The connect command connects to a autobuild socket and then relays all data on standard in to this connection. When using a remote connection (-r, --remote) for client commands (such as stage or release), a ssh connection is made to the remote and `autobuild connect' is executed allowing the remote call with proper authentication.",
 		&CommandConnect{})
 }
