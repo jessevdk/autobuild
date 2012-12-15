@@ -22,8 +22,8 @@ type DistroBuildInfo struct {
 	Distribution Distribution
 	ChangesFiles []string
 	Files        []string
-	Log          *bytes.Buffer
 	Error        error
+	Log          string `json:"-"`
 }
 
 type BuildInfo struct {
@@ -504,7 +504,6 @@ func (x *PackageBuilder) extractSourcePackage(info *BuildInfo, distro *Distribut
 func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distribution) error {
 	src := &DistroBuildInfo{
 		IncomingDir: path.Join(options.Base, "incoming", distro.Os, distro.CodeName),
-		Log:         &bytes.Buffer{},
 
 		Distribution: Distribution{
 			Os:            distro.Os,
@@ -541,11 +540,12 @@ func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distributio
 	cmd.Env = append(cmd.Env, fmt.Sprintf("AUTOBUILD_BASE=%s", options.Base))
 
 	var wr io.Writer
+	log := &bytes.Buffer{}
 
 	if options.Verbose {
-		wr = io.MultiWriter(src.Log, os.Stdout)
+		wr = io.MultiWriter(log, os.Stdout)
 	} else {
-		wr = src.Log
+		wr = log
 	}
 
 	cmd.Stdout = wr
@@ -556,6 +556,8 @@ func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distributio
 	}
 
 	src.Error = cmd.Run()
+
+	src.Log = log.String()
 
 	if src.Error != nil {
 		os.RemoveAll(info.BuildResultsDir)
@@ -571,8 +573,6 @@ func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distributio
 func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distribution, arch string, buildBinaryIndep bool) error {
 	bin := &DistroBuildInfo{
 		IncomingDir: path.Join(options.Base, "incoming", distro.Os, distro.CodeName),
-
-		Log: &bytes.Buffer{},
 
 		Distribution: Distribution{
 			Os:            distro.Os,
@@ -607,17 +607,20 @@ func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distributi
 	cmd.Env = append(cmd.Env, fmt.Sprintf("AUTOBUILD_BASE=%s", options.Base))
 
 	var wr io.Writer
+	log := &bytes.Buffer{}
 
 	if options.Verbose {
-		wr = io.MultiWriter(bin.Log, os.Stdout)
+		wr = io.MultiWriter(log, os.Stdout)
 	} else {
-		wr = bin.Log
+		wr = log
 	}
 
 	cmd.Stdout = wr
 	cmd.Stderr = wr
 
 	bin.Error = cmd.Run()
+
+	bin.Log = log.String()
 
 	if bin.Error != nil {
 		os.RemoveAll(info.BuildResultsDir)
