@@ -56,7 +56,7 @@ func (x *DaemonCommands) Stage(archive *Archive, reply *GeneralReply) error {
 		basename := path.Base(archive.Filename)
 		full := path.Join(stagedir, basename)
 
-		f, err := os.OpenFile(full, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+		f, err := os.Create(full)
 
 		if err != nil {
 			return nil, err
