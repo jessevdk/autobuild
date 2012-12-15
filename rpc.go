@@ -32,17 +32,20 @@ func (c *CodecWithAuth) ReadRequestBody(body interface{}) error {
 
 	v := reflect.ValueOf(body)
 
-	if v.Kind() == reflect.Ptr {
-		v = reflect.Indirect(v)
+	if v.Kind() == reflect.Ptr && !v.IsNil() {
+		v = v.Elem()
 	}
 
-	field := v.FieldByName("Uid")
+	if v.Kind() == reflect.Struct {
+		field := v.FieldByName("Uid")
 
-	if !field.IsValid() || field.Kind() != reflect.Uint32 {
-		return nil
+		if !field.IsValid() || field.Kind() != reflect.Uint32 {
+			return nil
+		}
+
+		field.SetUint(uint64(c.Uid))
 	}
 
-	field.SetUint(uint64(c.Uid))
 	return nil
 }
 
