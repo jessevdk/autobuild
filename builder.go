@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 type DistroBuildInfo struct {
@@ -24,6 +25,7 @@ type DistroBuildInfo struct {
 	Files        []string
 	Error        error
 	Log          string `json:"-"`
+	Id           uint64
 }
 
 type BuildInfo struct {
@@ -52,7 +54,8 @@ type PackageBuilder struct {
 
 	notifyQueue chan bool
 
-	Mutex sync.Mutex
+	Mutex     sync.Mutex
+	PackageId uint64
 }
 
 var builder = PackageBuilder{
@@ -510,6 +513,8 @@ func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distributio
 			CodeName:      distro.CodeName,
 			Architectures: []string{"source"},
 		},
+
+		Id: atomic.AddUint64(&x.PackageId, 1),
 	}
 
 	if options.Verbose {
@@ -579,6 +584,8 @@ func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distributi
 			CodeName:      distro.CodeName,
 			Architectures: []string{arch},
 		},
+
+		Id: atomic.AddUint64(&x.PackageId, 1),
 	}
 
 	var debBuildOpt string
@@ -682,6 +689,7 @@ func (x *PackageBuilder) buildPackage() *BuildInfo {
 type PackageBuilderState struct {
 	FinishedPackages []*BuildInfo
 	PackageQueue     []*PackageInfo
+	PackageId        uint64
 }
 
 func (x *PackageBuilder) Save() {
@@ -691,6 +699,7 @@ func (x *PackageBuilder) Save() {
 		state := PackageBuilderState{
 			FinishedPackages: b.FinishedPackages,
 			PackageQueue:     b.PackageQueue,
+			PackageId:        b.PackageId,
 		}
 
 		if b.CurrentlyBuilding != nil {
@@ -734,6 +743,7 @@ func (x *PackageBuilder) Load() {
 
 			b.FinishedPackages = state.FinishedPackages
 			b.PackageQueue = state.PackageQueue
+			b.PackageId = state.PackageId
 
 			if len(b.PackageQueue) > 0 {
 				b.notifyQueue <- true
