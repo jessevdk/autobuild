@@ -51,6 +51,8 @@ func WebQueueServiceHandle(w http.ResponseWriter, r *http.Request, uid uint32) {
 			enc.Encode(map[string][]*BuildInfo{
 				"packages": packages,
 			})
+
+			return nil
 		})
 	} else if r.URL.Path == "/queue/release" || r.URL.Path == "/queue/discard" {
 		packages := make([]uint64, 0)
