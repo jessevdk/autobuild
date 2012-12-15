@@ -729,60 +729,103 @@ func (x *PackageBuilder) doRelease(info *DistroBuildInfo) error {
 	// To release, we move all the registered files to the reprepro
 	// incoming
 	for _, f := range info.Files {
-		if err := os.Rename(f, path.Join(incomingdir, path.Base(f))); err != nil {
+		target := path.Join(incomingdir, path.Base(f))
+
+		if err := os.Rename(f, target); err == nil {
+			return nil
+		}
+
+		// Try to copy instead of renaming
+		fr, err := os.Open(f)
+
+		if err != nil {
 			return err
 		}
+
+		defer fr.Close()
+		os.MkdirAll(path.Dir(target), 0755)
+
+		fw, err := os.Create(target)
+
+		if err != nil {
+			return err
+		}
+
+		defer fw.Close()
+
+		if _, err := io.Copy(fw, fr); err != nil {
+			return err
+		}
+
+		// Remove source after copy
+		fr.Close()
+		os.Remove(f)
+
+		return nil
 	}
 
 	return nil
 }
 
+func (x *PackageBuilder) doDiscard(info *DistroBuildInfo) error {
+	// To discard, we simply remove the files
+	for _, f := range info.Files {
+		os.Remove(f)
+	}
+
+	return nil
+}
+
+func (x *PackageBuilder) removeFinished() {
+	finishedp := make([]*BuildInfo, 0, len(x.FinishedPackages))
+
+	for _, res := range x.FinishedPackages {
+		if len(res.Source) != 0 || len(res.Binaries) != 0 {
+			finishedp = append(finishedp, res)
+		}
+	}
+
+	x.FinishedPackages = finishedp
+}
+
+func (x *PackageBuilder) Discard(ids []uint64) ([]uint64, error) {
+	retval := make([]uint64, 0, len(ids))
+
+	return retval, x.Do(func(b *PackageBuilder) error {
+		err := x.foreachMatchedId(ids, func(info *BuildInfo, binfo *DistroBuildInfo) error {
+			if err := x.doDiscard(binfo); err != nil {
+				return err
+			}
+
+			retval = append(retval, binfo.Id)
+			return nil
+		})
+
+		x.removeFinished()
+		return err
+	})
+}
+
 func (x *PackageBuilder) Release(ids []uint64) ([]uint64, error) {
-	retval := make([]uint64, 0, len(sortedids))
+	retval := make([]uint64, 0, len(ids))
 
 	return retval, x.Do(func(b *PackageBuilder) error {
 		runReproMutex.Lock()
 
 		distros := make(map[string]Distribution)
 
-		newpkg := make([]*BuildInfo, 0, len(b.FinishedPackages))
-
-		var err error
-
-		for _, res := range resultscp {
-			for k, v := range res.Source {
-				if sortedids.Contains(v.Id) {
-					if err = x.doRelease(v); err == nil {
-						distros[v.Distribution.SourceName()] = v.Distribution
-						delete(res.Source, k)
-
-						retval = append(retval, v.Id)
-					}
-
-					break
-				}
+		err := x.foreachMatchedId(ids, func(info *BuildInfo, binfo *DistroBuildInfo) error {
+			if err := x.doRelease(binfo); err != nil {
+				return err
 			}
 
-			for k, v := range res.Binaries {
-				if sortedids.Contains(v.Id) {
-					if err = x.doRelease(v); err == nil {
-						distros[v.Distribution.SourceName()] = v.Distribution
-						delete(res.Binaries, k)
+			distros[binfo.Distribution.SourceName()] = binfo.Distribution
+			retval = append(retval, binfo.Id)
 
-						retval = append(retval, v.Id)
-					}
-				}
-			}
+			return nil
+		})
 
-			if len(res.Source) != 0 || len(res.Binaries) != 0 {
-				b.FinishedPackages = append(b.FinishedPackages, res)
-			}
-
-			if err != nil {
-				break
-			}
-		}
-
+		x.removeFinished()
 		runReproMutex.Unlock()
 
 		for _, v := range distros {
