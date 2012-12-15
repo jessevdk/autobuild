@@ -824,10 +824,10 @@ type PackageBuilderState struct {
 	PackageId        uint64
 }
 
-func (x *PackageBuilder) Save() {
+func (x *PackageBuilder) Save() error {
 	f := path.Join(options.Base, "run", "builder.state")
 
-	x.Do(func(b *PackageBuilder) error {
+	return x.Do(func(b *PackageBuilder) error {
 		state := PackageBuilderState{
 			FinishedPackages: b.FinishedPackages,
 			PackageQueue:     b.PackageQueue,
@@ -855,10 +855,10 @@ func (x *PackageBuilder) Save() {
 	})
 }
 
-func (x *PackageBuilder) Load() {
+func (x *PackageBuilder) Load() error {
 	f := path.Join(options.Base, "run", "builder.state")
 
-	x.Do(func(b *PackageBuilder) error {
+	return x.Do(func(b *PackageBuilder) error {
 		fn, err := os.Open(f)
 
 		if err == nil {
@@ -884,7 +884,7 @@ func (x *PackageBuilder) Load() {
 			return nil
 		}
 
-		return err
+		return nil
 	})
 }
 
