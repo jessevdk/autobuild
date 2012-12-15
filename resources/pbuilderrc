@@ -52,6 +52,11 @@ BINDMOUNTS="$REPO"
 
 OTHERMIRROR=""
 
+# Check if BUILDPLACE is a tmpfs, then do not let apt cache hardlink
+if grep "^tmpfs $BUILDPLACE tmpfs" /proc/mounts &>/dev/null; then
+	APTCACHEHARDLINK=no
+fi
+
 if [ -d "$REPO/$OS/dists/$DISTRIBUTION/main/binary-$ARCH" ]; then
 	OTHERMIRROR="deb [arch=$ARCH] file://$REPO/$OS/ $DISTRIBUTION main"
 fi

@@ -50,6 +50,15 @@ func (x *CommandDaemon) Execute(args []string) error {
 		return err
 	}
 
+	// Setup tmpfs if needed
+	if options.UseTmpfs {
+		builddir := path.Join(options.Base, "pbuilder", "build")
+
+		if err := RunCommand("mount", "-t", "tmpfs", "tmpfs", builddir); err == nil {
+			defer RunCommand("umount", builddir)
+		}
+	}
+
 	sig := make(chan os.Signal, 10)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 

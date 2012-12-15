@@ -44,6 +44,8 @@ type Options struct {
 
 	Pbuilder string `json:"pbuilder" no-flag:"-"`
 
+	UseTmpfs bool `json:"use-tmpfs" no-flag:"-"`
+
 	Repository RepositoryOptions `json:"repository" no-flag:"-"`
 }
 
@@ -153,6 +155,8 @@ var options = &Options{
 	Repository: RepositoryOptions{
 		ListenPort: "8080",
 	},
+
+	UseTmpfs: false,
 }
 
 var parser = flags.NewParser(options, flags.Default)

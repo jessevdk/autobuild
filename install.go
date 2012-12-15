@@ -350,6 +350,26 @@ func (x *CommandInstall) firstTimeConfiguration() error {
 		return err
 	}
 
+	if err := x.readOption("  1.3 Pbuilder", &options.Pbuilder); err != nil {
+		return err
+	}
+
+	if options.Pbuilder != "cowbuilder" {
+		var tmpfs string
+
+		if options.UseTmpfs {
+			tmpfs = "yes"
+		} else {
+			tmpfs = "no"
+		}
+
+		if err := x.readOption("  1.4 Use tmpfs for building", &tmpfs); err != nil {
+			return err
+		}
+
+		options.UseTmpfs = tmpfs == "yes" || tmpfs == "y" || tmpfs == "Y"
+	}
+
 	fmt.Println()
 	fmt.Println("2. Repository configuration")
 
