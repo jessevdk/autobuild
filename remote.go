@@ -96,9 +96,13 @@ func RemoteRecvCredentials(conn *net.UnixConn) (uint32, uint32, error) {
 	return ucred.Uid, ucred.Gid, nil
 }
 
-func RemoteConnect() (*rpc.Client, error) {
+func RemoteConnect(socketfile string) (io.ReadWriteCloser, error) {
 	if options.Remote == "" {
-		cl, err := net.Dial("unix", path.Join(options.Base, "run", "autobuild.sock"))
+		if len(socketfile) == 0 {
+			socketfile = path.Join(options.Base, "run", "autobuild.sock")
+		}
+
+		cl, err := net.Dial("unix", socketfile)
 
 		if err != nil {
 			return nil, err
@@ -108,10 +112,16 @@ func RemoteConnect() (*rpc.Client, error) {
 			return nil, err
 		}
 
-		return rpc.NewClient(cl), nil
+		return cl, nil
 	} else {
 		// Connect to the remote using ssh
-		cmd := MakeCommand("ssh", options.Remote, "autobuild connect")
+		scmd := "autobuild connect"
+
+		if len(socketfile) != 0 {
+			scmd = scmd + " " + socketfile
+		}
+
+		cmd := MakeCommand("ssh", options.Remote, scmd)
 		inp, err := cmd.StdinPipe()
 
 		if err != nil {
@@ -133,14 +143,14 @@ func RemoteConnect() (*rpc.Client, error) {
 			return nil, err
 		}
 
-		return rpc.NewClient(rw), nil
+		return rw, nil
 	}
 
 	return nil, nil
 }
 
 func RemoteCall(method string, args interface{}, reply interface{}) error {
-	c, err := RemoteConnect()
+	rwc, err := RemoteConnect("")
 
 	if err != nil {
 		if options.Verbose {
@@ -149,6 +159,8 @@ func RemoteCall(method string, args interface{}, reply interface{}) error {
 
 		return err
 	}
+
+	c := rpc.NewClient(rwc)
 
 	if options.Verbose {
 		fmt.Printf("Connected to remote daemon\n")
