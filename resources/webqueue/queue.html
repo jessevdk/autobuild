@@ -1,0 +1,257 @@
+<!DOCTYPE>
+<html>
+    <head>
+        <title>autobuild webqueue</title>
+        <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+
+        <script type="text/javascript">
+            $(document).ready(function () {
+                $.getJSON('/queue', function (data, status) {
+                    console.log(data);
+                    show_queue(data);
+                })
+            });
+
+            var packages;
+            var single_packages;
+
+            function make_single_package(name, p)
+            {
+                var sp = $('<div class="subpackage"/>');
+                var names = name.split('/');
+
+                var nn = $('<div class="names"/>');
+
+                nn.append($('<input type="checkbox"/>'));
+
+                $.each(names, function (_, n) {
+                    nn.append($('<span/>').text(n));
+                });
+
+                var st = $('<div class="status"/>');
+                var ch = p.Changes.replace(/.*\//g, '');
+                var alog = '(<a href="/queue/log/' + ch + '">log</a>)';
+
+                if (p.Error == null)
+                {
+                    st.html('OK ' + alog);
+                }
+                else
+                {
+                    st.addClass('error');
+                    st.text('FAIL ' + alog);
+                }
+
+                var files = $('<ul class="files"/>');
+                var idir = p.IncomingDir;
+
+                $.each(p.Files, function (_, file) {
+                    var fname = file.substring(idir.length + 1);
+
+                    var a = $('<a/>', {
+                        href: '/queue/download/' + ch + '/' + fname
+                    }).text(fname);
+
+                    var li = $('<li/>').append(a);
+                    li.appendTo(files);
+                });
+
+                sp.append(st);
+                sp.append(nn);
+                sp.append(files);
+
+                single_packages.push(p);
+
+                return sp;
+            }
+
+            function make_package(p)
+            {
+                var pd = $('<div class="package"/>');
+                var n = $('<div class="name"/>');
+
+                n.append($('<span class="name"/>').text(p.Info.Name));
+                n.append($('<span class="version"/>').text(p.Info.Version));
+
+                pd.append(n);
+
+                var packs = {};
+
+                $.each(p.Source, function (key, value) {
+                    pd.append(make_single_package(key + '/source', value));
+                });
+
+                $.each(p.Binaries, function (key, value) {
+                    pd.append(make_single_package(key, value));
+                });
+
+                return pd;
+            }
+
+            function show_queue(q)
+            {
+                var dq = $('#queue');
+
+                dq.empty();
+
+                single_packages = [];
+                packages = q.packages;
+
+                for (var i = 0; i < q.packages.length; ++i)
+                {
+                    dq.append(make_package(q.packages[i]));
+                }
+
+                var bt = $('<div class="buttons"/>');
+
+                var stage = $('<input type="button" value="Stage"/>');
+                var release = $('<input type="button" value="Release"/>');
+                var discard = $('<input type="button" value="Discard"/>');
+
+                stage.on('click', do_stage);
+                release.on('click', do_release);
+                discard.on('click', do_discard);
+
+                bt.append(stage);
+                bt.append(discard);
+                bt.append(release);
+
+                dq.append(bt);
+            }
+
+            function do_stage()
+            {
+                
+            }
+
+            function delete_from_queue(packages)
+            {
+                
+            }
+
+            function do_release()
+            {
+                var sel = selected_packages();
+
+                if (sel.length == 0)
+                {
+                    return;
+                }
+
+                $.ajax('/queue/release', {
+                    data: JSON.stringify(sel),
+                    contentType: 'application/json',
+                    type: 'POST',
+
+                    success: function (data, status) {
+                        delete_from_queue(data);
+                    }
+                });
+            }
+
+            function do_discard()
+            {
+                var sel = selected_packages();
+
+                if (sel.length == 0)
+                {
+                    return;
+                }
+
+                $.ajax('/queue/discard', {
+                    data: JSON.stringify(sel),
+                    contentType: 'application/json',
+                    type: 'POST',
+
+                    success: function (data, status) {
+                        delete_from_queue(data);
+                    }
+                });
+            }
+
+            function selected_packages()
+            {
+                var ret = [];
+
+                $('#queue').find("input[type='checkbox']").each(function (i, ch) {
+                    if ($(ch).is(':checked'))
+                    {
+                        ret.push(single_packages[i]);
+                    }
+                });
+
+                return ret;
+            }
+        </script>
+
+        <style type="text/css">
+            .subpackage {
+                margin-bottom: 15px;
+                min-height: 30px;
+            }
+
+            .subpackage div.names {
+                margin: 10px 0px 5px 0px;
+            }
+
+            .subpackage div.names span {
+                border: 1px solid #aaa;
+                border-radius: 3px;
+                padding: 1px 5px 2px 5px;
+                margin-right: 2px;
+                background-color: #f9f9f9;
+                font-size: 0.8em;
+                font-family: monaco, ubuntu mono, monospace, courier new;
+            }
+
+            .buttons {
+                margin-top: 30px;
+                text-align: right;
+            }
+
+            .subpackage ul.files {
+                list-style: none;
+                margin: 0px 0px 0px 15px;
+                padding: 0;
+            }
+
+            input[type='checkbox'] {
+                vertical-align: middle;
+            }
+
+            .subpackage ul.files li {
+                font-size: 0.8em;
+                font-family: monaco, ubuntu mono, monospace, courier new;
+            }
+
+            .subpackage div.status {
+                float: right;
+                color: #4e9a06;
+                padding: 2px;
+            }
+
+            .subpackage div.status.error {
+                color: #a40000;
+            }
+
+            a {
+                color: #729fcf;
+            }
+
+            body {
+                color: #333;
+            }
+
+            #queue {
+                width: 60%;
+                margin: 0 auto;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="queue">
+        </div>
+    </body>
+</html>
+
+<!-- vi:ts=4:et -->

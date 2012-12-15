@@ -21,8 +21,8 @@ endif
 
 GC = go
 
-RESOURCES = $(wildcard resources/*)
-SECTIONS = $(foreach i,$(RESOURCES),--add-section autobuild_res_$(notdir $(i))=$(i))
+RESOURCES = $(shell find resources/ -type f)
+SECTIONS = $(foreach i,$(RESOURCES),--add-section autobuild_res_$(subst resources/,,$(i))=$(i))
 
 MANINSTALLDIR = $(INSTALLDIR)/share/man/man1
 
@@ -30,7 +30,7 @@ all: $(TARGET) $(TARGET).man
 
 $(TARGET): $(SOURCES) $(RESOURCES)
 	$(call vecho,GC,$@) $(GC) build -o $@ $(SOURCES) && \
-	objcopy $(SECTIONS) $(TARGET)
+	$(call veecho,RES,$@) objcopy $(SECTIONS) $(TARGET)
 
 CLEANFILES = $(TARGET) $(TARGET).man .gen-man
 
