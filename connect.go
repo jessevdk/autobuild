@@ -12,7 +12,15 @@ type CommandConnect struct {
 
 func (x *CommandConnect) Execute(args []string) error {
 	// Connect to the local autobuild socket and act as gateway
-	cl, err := net.Dial("unix", path.Join(options.Base, "run", "autobuild.sock"))
+	var filename string
+
+	if len(args) == 1 {
+		filename = args[0]
+	} else {
+		filename = path.Join(options.Base, "run", "autobuild.sock")
+	}
+
+	cl, err := net.Dial("unix", filename)
 
 	if err != nil {
 		return err
