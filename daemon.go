@@ -28,8 +28,15 @@ func (x *CommandDaemon) verifyCredentials(uid uint32) bool {
 }
 
 func (x *CommandDaemon) Execute(args []string) error {
-	builder.Load()
-	defer builder.Save()
+	if err := builder.Load(); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to load builder state: %s\n", err)
+	}
+
+	defer func() {
+		if err := builder.Save(); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to save builder state: %s\n", err)
+		}
+	}()
 
 	syscall.RawSyscall(syscall.SYS_IOCTL, 0, uintptr(syscall.TIOCNOTTY), 0)
 
