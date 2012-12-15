@@ -65,7 +65,7 @@ func WebQueueServiceHandle(w http.ResponseWriter, r *http.Request, uid uint32) {
 
 		if r.URL.Path == "/queue/release" {
 			retpack, err = builder.Release(packages)
-		} else {
+		} else if r.URL.Path == "/queue/discard" {
 			retpack, err = builder.Discard(packages)
 		}
 
