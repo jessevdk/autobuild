@@ -3,10 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/jessevdk/go-flags"
 	"os"
 	"path"
 	"syscall"
-	"github.com/jessevdk/go-flags"
 )
 
 // #include <sys/file.h>
@@ -23,11 +23,11 @@ type BuildOptions struct {
 }
 
 type RepositoryOptions struct {
-	Origin string `json:"origin,omit-empty" description:"The APT repository Origin field"`
-	Label string `json:"label,omit-empty" description:"The APT repository Label field"`
+	Origin      string `json:"origin,omit-empty" description:"The APT repository Origin field"`
+	Label       string `json:"label,omit-empty" description:"The APT repository Label field"`
 	Description string `json:"description,omit-empty" description:"The APT repository Description field"`
-	SignKey string `json:"sign-key,omit-empty" description:"The APT repository sign key identifier"`
-	ListenPort string `json:"listen-port,omit-empty" description:"The APT repository webserver port"`
+	SignKey     string `json:"sign-key,omit-empty" description:"The APT repository sign key identifier"`
+	ListenPort  string `json:"listen-port,omit-empty" description:"The APT repository webserver port"`
 }
 
 type Options struct {
@@ -127,7 +127,7 @@ func (x *Options) UpdateConfig(updateFunc func(*Options) error) error {
 func (x *Options) SaveConfig() error {
 	cp := *x
 
-	return x.UpdateConfig(func (opt *Options) error {
+	return x.UpdateConfig(func(opt *Options) error {
 		*opt = cp
 		return nil
 	})
@@ -150,7 +150,7 @@ var options = &Options{
 
 	Pbuilder: "cowbuilder",
 
-	Repository: RepositoryOptions {
+	Repository: RepositoryOptions{
 		ListenPort: "8080",
 	},
 }

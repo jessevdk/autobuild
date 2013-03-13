@@ -1,15 +1,15 @@
 package main
 
 import (
-	"net/rpc"
-	"encoding/gob"
-	"reflect"
-	"os"
-	"net"
-	"io"
 	"bufio"
-	"path"
+	"encoding/gob"
 	"fmt"
+	"io"
+	"net"
+	"net/rpc"
+	"os"
+	"path"
+	"reflect"
 )
 
 type CodecWithAuth struct {
@@ -18,7 +18,7 @@ type CodecWithAuth struct {
 	enc    *gob.Encoder
 	encBuf *bufio.Writer
 
-	Uid    uint32
+	Uid uint32
 }
 
 func (c *CodecWithAuth) ReadRequestHeader(r *rpc.Request) error {
@@ -71,8 +71,8 @@ func (x *CommandDaemon) listenRpc() (*rpc.Server, error) {
 
 	if err != nil {
 		fmt.Errorf("Failed to create remote listen socket on `%s': %s\n",
-		           spath,
-		           err)
+			spath,
+			err)
 
 		return nil, err
 	}

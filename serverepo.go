@@ -1,11 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path"
 	"strings"
-	"fmt"
 	"time"
 )
 
@@ -76,11 +76,11 @@ func (x *CommandDaemon) listenRepository() error {
 	d := http.Dir(path.Join(options.Base, "repository"))
 	fs := http.FileServer(RepositoryFS{d})
 
-	s := &http.Server {
-		Addr:           fmt.Sprintf(":%s", options.Repository.ListenPort),
-		Handler:        fs,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
+	s := &http.Server{
+		Addr:         fmt.Sprintf(":%s", options.Repository.ListenPort),
+		Handler:      fs,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
 	}
 
 	go s.ListenAndServe()

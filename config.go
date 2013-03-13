@@ -1,10 +1,10 @@
 package main
 
 import (
-	"reflect"
-	"strings"
 	"fmt"
+	"reflect"
 	"strconv"
+	"strings"
 )
 
 type CommandConfig struct {
@@ -14,14 +14,14 @@ func (x *CommandConfig) showValue(s interface{}, name string, indent string, pad
 	fmt.Printf("%s\033[34m%s\033[0m:%s ", indent, name, pad)
 
 	switch v := s.(type) {
-		case string:
-			fmt.Printf("\033[32m%s\033[0m\n", v)
-		case int, int8, int16, int32, int64,
-		     uint, uint8, uint16, uint32, uint64,
-		     float32, float64:
-			fmt.Printf("\033[36m%v\033[0m\n", v)
-		default:
-			fmt.Printf("%v\n", s)
+	case string:
+		fmt.Printf("\033[32m%s\033[0m\n", v)
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64:
+		fmt.Printf("\033[36m%v\033[0m\n", v)
+	default:
+		fmt.Printf("%v\n", s)
 	}
 
 	return nil
@@ -91,7 +91,7 @@ func (x *CommandConfig) show(s interface{}, name string, indent string, pad stri
 			}
 
 			vv := v.Field(idx)
-			p := strings.Repeat(" ", longest - len(fname))
+			p := strings.Repeat(" ", longest-len(fname))
 
 			if err := x.show(vv.Interface(), nn, nindent, p); err != nil {
 				return err
@@ -204,7 +204,7 @@ func (x *CommandConfig) Execute(args []string) error {
 
 	shown := false
 
-	err := options.UpdateConfig(func (opts *Options) error {
+	err := options.UpdateConfig(func(opts *Options) error {
 		opt := reflect.ValueOf(options)
 
 		for _, arg := range args {
@@ -245,7 +245,7 @@ func (x *CommandConfig) Execute(args []string) error {
 
 func init() {
 	parser.AddCommand("config",
-	                  "Get or set configuration settings",
-	                  "The config command can be used to get or set configuration settings. Without any arguments, all the current configuration settings are listed. You can list specific values of configuration settings by providing one or more setting names as arguments. Finally, to set a configuration value, use `setting=value` as an argument.",
-	                  &CommandConfig {})
+		"Get or set configuration settings",
+		"The config command can be used to get or set configuration settings. Without any arguments, all the current configuration settings are listed. You can list specific values of configuration settings by providing one or more setting names as arguments. Finally, to set a configuration value, use `setting=value` as an argument.",
+		&CommandConfig{})
 }
