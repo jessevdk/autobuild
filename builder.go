@@ -568,7 +568,7 @@ func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distributio
 	return src.Error
 }
 
-func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distribution, arch string) error {
+func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distribution, arch string, buildBinaryIndep bool) error {
 	bin := &DistroBuildInfo{
 		IncomingDir: path.Join(options.Base, "incoming", distro.Os, distro.CodeName),
 
@@ -581,6 +581,14 @@ func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distributi
 		},
 	}
 
+	var debBuildOpt string
+	if buildBinaryIndep == true {
+		debBuildOpt = "-b"
+	} else {
+		// from 'man depkg-buildpackage' -B : build binary package, limited to binary dependent
+		debBuildOpt = "-B"
+	}
+
 	pkgdir := path.Join(info.Package.Dir, fmt.Sprintf("%s-%s", info.Info.Name, info.Info.Version))
 
 	// Call pdebuild
@@ -591,7 +599,7 @@ func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distributi
 		"--buildresult", info.BuildResultsDir,
 		"--debbuildopts", "-us",
 		"--debbuildopts", "-uc",
-		"--debbuildopts", "-b")
+		"--debbuildopts", debBuildOpt )
 
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, fmt.Sprintf("DIST=%s/%s", distro.Os, distro.CodeName))
@@ -658,8 +666,12 @@ func (x *PackageBuilder) buildPackage() *BuildInfo {
 			return binfo
 		}
 
+		buildBinaryIndep := true
+
 		for _, arch := range distro.Architectures {
-			x.buildBinaryPackages(binfo, distro, arch)
+			x.buildBinaryPackages(binfo, distro, arch, buildBinaryIndep)
+			//we build binary-indep packages only for the first architecture supported
+			buildBinaryIndep = false
 		}
 	}
 
