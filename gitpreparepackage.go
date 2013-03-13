@@ -1,15 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"regexp"
-	"time"
-	"io/ioutil"
 	"strings"
-	"bufio"
-	"io"
+	"time"
 )
 
 type CommandGitPreparePackage struct {
@@ -47,7 +47,7 @@ func (x *CommandGitPreparePackage) updateChangelog(name string, version string) 
 	emails := strings.TrimSpace(string(email))
 
 	ch := fmt.Sprintf("%s (%s-1) UNRELEASED; urgency=low\n\n  * \n\n -- %s <%s>  %s\n\n",
-	                  name, version, users, emails, date) + string(changelog)
+		name, version, users, emails, date) + string(changelog)
 
 	f, err = os.Create("debian/changelog")
 
@@ -279,7 +279,7 @@ func (x *CommandGitPreparePackage) Execute(args []string) error {
 		return err
 	}
 
-	targs := []string {
+	targs := []string{
 		"-C",
 		tmp,
 		"-cJf",
@@ -302,7 +302,7 @@ func (x *CommandGitPreparePackage) Execute(args []string) error {
 
 func init() {
 	parser.AddCommand("git-prepare-package",
-	                  "Prepare a package using information from a git repository",
-	                  "The git-prepare-package command creates an archive suitable for use with `autobuild stage' from a git repository. It expects the original tarball source as an argument and uses the `debian' branch of the current git repository to create the debian diff. Additionally, it will generate a new debian changelog entry if necessary.",
-	                  &CommandGitPreparePackage{})
+		"Prepare a package using information from a git repository",
+		"The git-prepare-package command creates an archive suitable for use with `autobuild stage' from a git repository. It expects the original tarball source as an argument and uses the `debian' branch of the current git repository to create the debian diff. Additionally, it will generate a new debian changelog entry if necessary.",
+		&CommandGitPreparePackage{})
 }

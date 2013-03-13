@@ -1,15 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"runtime"
 	"strings"
-	"io/ioutil"
-	"bufio"
-	"io"
 )
 
 type CommandInit struct {
@@ -25,22 +25,22 @@ func (x *CommandInit) addDistro(distro *Distribution, arch string) error {
 	confdir := path.Join(options.Base, "repository", distro.Os, "conf")
 	distroconf := path.Join(confdir, "distributions")
 
-	f, err := os.OpenFile(distroconf, os.O_CREATE | os.O_APPEND | os.O_WRONLY, 0644)
+	f, err := os.OpenFile(distroconf, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 
 	if err != nil {
 		return err
 	}
 
 	fmt.Fprintln(f, "")
-	fmt.Fprintf(f,  "# %s\n", distro.SourceName())
-	fmt.Fprintf(f,  "Origin: %s\n", options.Repository.Origin)
-	fmt.Fprintf(f,  "Label: %s\n", options.Repository.Label)
-	fmt.Fprintf(f,  "Codename: %s\n", distro.CodeName)
-	fmt.Fprintf(f,  "Architectures: %s source\n", arch)
+	fmt.Fprintf(f, "# %s\n", distro.SourceName())
+	fmt.Fprintf(f, "Origin: %s\n", options.Repository.Origin)
+	fmt.Fprintf(f, "Label: %s\n", options.Repository.Label)
+	fmt.Fprintf(f, "Codename: %s\n", distro.CodeName)
+	fmt.Fprintf(f, "Architectures: %s source\n", arch)
 	fmt.Fprintln(f, "Components: main")
-	fmt.Fprintf(f,  "Description: %s Repository\n", options.Repository.Description)
-	fmt.Fprintf(f,  "DebOverride: override.%s\n", distro.CodeName)
-	fmt.Fprintf(f,  "DscOverride: override.%s\n", distro.CodeName)
+	fmt.Fprintf(f, "Description: %s Repository\n", options.Repository.Description)
+	fmt.Fprintf(f, "DebOverride: override.%s\n", distro.CodeName)
+	fmt.Fprintf(f, "DscOverride: override.%s\n", distro.CodeName)
 
 	if len(options.Repository.SignKey) > 0 {
 		fmt.Fprintf(f, "SignWith: %s\n", options.Repository.SignKey)
@@ -49,7 +49,7 @@ func (x *CommandInit) addDistro(distro *Distribution, arch string) error {
 	f.Close()
 
 	incomingconf := path.Join(confdir, "incoming")
-	f, err = os.OpenFile(incomingconf, os.O_CREATE | os.O_APPEND | os.O_WRONLY, 0644)
+	f, err = os.OpenFile(incomingconf, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 
 	if err != nil {
 		return err
@@ -71,10 +71,10 @@ func (x *CommandInit) addDistro(distro *Distribution, arch string) error {
 		return err
 	}
 
-	f.Write([]byte {'\n'});
+	f.Write([]byte{'\n'})
 	f.Close()
 
-	f, err = os.OpenFile(path.Join(confdir, "options"), os.O_CREATE | os.O_EXCL | os.O_WRONLY, 0644)
+	f, err = os.OpenFile(path.Join(confdir, "options"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 
 	if err == nil {
 		fmt.Fprintf(f, "basedir %s\n", path.Join(options.Base, "repository", distro.Os))
@@ -115,7 +115,7 @@ func (x *CommandInit) addArch(distro *Distribution, arch string) error {
 		if err != nil && err != io.EOF {
 			return err
 		} else if err == nil {
-			nonl = line[0:len(line)-1]
+			nonl = line[0 : len(line)-1]
 		} else {
 			nonl = line
 		}
@@ -169,7 +169,7 @@ func (x *CommandInit) AddDistribution(distro *Distribution, arch string) error {
 
 					// Add architecture
 					distcfg.Architectures = append(distcfg.Architectures,
-					                               arch)
+						arch)
 
 					if err := initRepRepro(distro); err != nil {
 						return err
@@ -296,7 +296,7 @@ func (x *CommandInit) Execute(args []string) error {
 
 func init() {
 	parser.AddCommand("init",
-	                  "Initialize a new build environment for a specific distribution",
-	                  "The init command initializes a new debootstrap build environment for a specific distribution. The arguments to the command specify which distributions to initialize and has the following syntax: <dist>/<codename>[/<arch>], where <dist> is the distribution (e.g. ubuntu or debian), <codename> is the distribution codename (e.g. precise or wheezy) and the optional <arch> is the architecture (e.g. i386 or amd64). If <arch> is not specified the architecture of the host machine will be used.",
-	                  &CommandInit {})
+		"Initialize a new build environment for a specific distribution",
+		"The init command initializes a new debootstrap build environment for a specific distribution. The arguments to the command specify which distributions to initialize and has the following syntax: <dist>/<codename>[/<arch>], where <dist> is the distribution (e.g. ubuntu or debian), <codename> is the distribution codename (e.g. precise or wheezy) and the optional <arch> is the architecture (e.g. i386 or amd64). If <arch> is not specified the architecture of the host machine will be used.",
+		&CommandInit{})
 }

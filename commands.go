@@ -2,8 +2,8 @@ package main
 
 import (
 	"io"
-	"path"
 	"os"
+	"path"
 )
 
 type DaemonCommands struct {
@@ -13,11 +13,11 @@ type Archive struct {
 	Filename string
 	Data     []byte
 
-	Uid      uint32
+	Uid uint32
 }
 
 type Incoming struct {
-	Uid      uint32
+	Uid uint32
 }
 
 type Release struct {
@@ -29,10 +29,10 @@ type GeneralReply struct {
 }
 
 type IncomingPackage struct {
-	Name string
-	Key string
+	Name         string
+	Key          string
 	Distribution Distribution
-	Files []string
+	Files        []string
 }
 
 type IncomingReply struct {
@@ -41,13 +41,13 @@ type IncomingReply struct {
 
 func (x *IncomingPackage) Matches(info *DistroBuildInfo) bool {
 	return x.Distribution.Os == info.Distribution.Os &&
-	       x.Distribution.CodeName == info.Distribution.CodeName &&
-	       x.Distribution.Architectures[0] == info.Distribution.Architectures[0] &&
-	       x.Name == path.Base(info.Changes)
+		x.Distribution.CodeName == info.Distribution.CodeName &&
+		x.Distribution.Architectures[0] == info.Distribution.Architectures[0] &&
+		x.Name == path.Base(info.Changes)
 }
 
 func (x *DaemonCommands) Stage(archive *Archive, reply *GeneralReply) error {
-	return builder.Stage(path.Base(archive.Filename), func (b *PackageBuilder) (*PackageInfo, error) {
+	return builder.Stage(path.Base(archive.Filename), func(b *PackageBuilder) (*PackageInfo, error) {
 		// Create stage dir if necessary
 		stagedir := path.Join(options.Base, "stage")
 		os.MkdirAll(stagedir, 0755)
@@ -56,7 +56,7 @@ func (x *DaemonCommands) Stage(archive *Archive, reply *GeneralReply) error {
 		basename := path.Base(archive.Filename)
 		full := path.Join(stagedir, basename)
 
-		f, err := os.OpenFile(full, os.O_CREATE | os.O_EXCL | os.O_WRONLY, 0644)
+		f, err := os.OpenFile(full, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 
 		if err != nil {
 			return nil, err
@@ -83,19 +83,19 @@ func (x *DaemonCommands) makeIncomingPackage(key string, d *DistroBuildInfo) Inc
 	ret := make([]string, len(d.ChangesFiles))
 
 	for i, f := range d.ChangesFiles {
-		ret[i] = f[len(options.Base) + 1:]
+		ret[i] = f[len(options.Base)+1:]
 	}
 
-	return IncomingPackage {
-		Name: path.Base(d.Changes),
-		Files: ret,
+	return IncomingPackage{
+		Name:         path.Base(d.Changes),
+		Files:        ret,
 		Distribution: d.Distribution,
-		Key: key,
+		Key:          key,
 	}
 }
 
 func (x *DaemonCommands) Incoming(incoming *Incoming, reply *IncomingReply) error {
-	return builder.Do(func (b *PackageBuilder) error {
+	return builder.Do(func(b *PackageBuilder) error {
 		for _, res := range b.FinishedPackages {
 			if res.Info.Uid != incoming.Uid {
 				continue
@@ -118,10 +118,10 @@ func (x *DaemonCommands) Incoming(incoming *Incoming, reply *IncomingReply) erro
 
 func (x *DaemonCommands) doRelease(info *DistroBuildInfo) error {
 	incomingdir := path.Join(options.Base,
-	                         "repository",
-	                         info.Distribution.Os,
-	                         "incoming",
-	                         info.Distribution.CodeName)
+		"repository",
+		info.Distribution.Os,
+		"incoming",
+		info.Distribution.CodeName)
 
 	os.MkdirAll(incomingdir, 0755)
 
@@ -129,7 +129,7 @@ func (x *DaemonCommands) doRelease(info *DistroBuildInfo) error {
 	// incoming
 	for _, f := range info.Files {
 		target := path.Join(incomingdir, path.Base(f))
-		
+
 		if err := os.Rename(f, target); err != nil {
 			// Try copy instead
 			fr, err := os.Open(f)
@@ -159,7 +159,7 @@ func (x *DaemonCommands) doRelease(info *DistroBuildInfo) error {
 }
 
 func (x *DaemonCommands) Release(release *Release, reply *GeneralReply) error {
-	return builder.Do(func (b *PackageBuilder) error {
+	return builder.Do(func(b *PackageBuilder) error {
 		runReproMutex.Lock()
 
 		distros := make(map[string]Distribution)

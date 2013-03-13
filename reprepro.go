@@ -10,7 +10,7 @@ var runReproMutex sync.Mutex
 func repReproArgs(distro *Distribution) []string {
 	repodir := path.Join(options.Base, "repository")
 
-	ret := []string {
+	ret := []string{
 		"-b",
 		path.Join(repodir, distro.Os),
 		"--gnupghome",

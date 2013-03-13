@@ -1,12 +1,12 @@
 package main
 
 import (
-	"os"
-	"fmt"
 	"bufio"
-	"path"
-	"io/ioutil"
+	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
+	"path"
 	"strings"
 )
 
@@ -23,12 +23,12 @@ func (x *CommandWipe) removeRepositoryConfig(opts *Options, distro *Distribution
 			if archcfg == arch {
 				distrocfg.Architectures =
 					append(distrocfg.Architectures[:i],
-					       distrocfg.Architectures[i+1:]...)
+						distrocfg.Architectures[i+1:]...)
 
 				if len(distrocfg.Architectures) == 0 {
 					opts.BuildOptions.Distributions =
 						append(opts.BuildOptions.Distributions[:ic],
-						       opts.BuildOptions.Distributions[ic+1:]...)
+							opts.BuildOptions.Distributions[ic+1:]...)
 
 				}
 
@@ -40,7 +40,7 @@ func (x *CommandWipe) removeRepositoryConfig(opts *Options, distro *Distribution
 	return false, false
 }
 
-func (x *CommandWipe) rewriteConf(confpath string, fn func (line string) (string, bool)) error {
+func (x *CommandWipe) rewriteConf(confpath string, fn func(line string) (string, bool)) error {
 	fr, err := os.Open(confpath)
 
 	if err != nil {
@@ -67,7 +67,7 @@ func (x *CommandWipe) rewriteConf(confpath string, fn func (line string) (string
 		}
 
 		if err == nil {
-			line = line[0:len(line)-1]
+			line = line[0 : len(line)-1]
 		}
 
 		nl, keep := fn(line)
@@ -100,7 +100,7 @@ func (x *CommandWipe) wipeCodename(distro *Distribution) {
 
 	m := fmt.Sprintf("# %s", distro.SourceName())
 
-	x.rewriteConf(confpath, func (line string) (string, bool) {
+	x.rewriteConf(confpath, func(line string) (string, bool) {
 		if len(line) == 0 {
 			return "", !shoulddelete
 		}
@@ -117,14 +117,14 @@ func (x *CommandWipe) wipeCodename(distro *Distribution) {
 	})
 
 	// Remove override file
-	os.Remove(path.Join(options.Base, "repository", distro.Os, "conf", "override." + distro.CodeName))
+	os.Remove(path.Join(options.Base, "repository", distro.Os, "conf", "override."+distro.CodeName))
 
 	// Remove incoming section
 	confpath = path.Join(confdir, "incoming")
 	inrepo := false
 	shoulddelete = false
 
-	x.rewriteConf(confpath, func (line string) (string, bool) {
+	x.rewriteConf(confpath, func(line string) (string, bool) {
 		if len(line) == 0 {
 			return "", !inrepo
 		}
@@ -150,8 +150,8 @@ func (x *CommandWipe) wipeArchitecture(distro *Distribution, arch string) {
 	archs := "Architectures:"
 
 	confpath := path.Join(confdir, "distributions")
-	
-	x.rewriteConf(confpath, func (line string) (string, bool) {
+
+	x.rewriteConf(confpath, func(line string) (string, bool) {
 		if len(line) == 0 {
 			return "", true
 		}
@@ -230,7 +230,7 @@ func (x *CommandWipe) wipeRepositoryFs(distro *Distribution, arch string, opts *
 }
 
 func (x *CommandWipe) wipeRepositories(distros []*Distribution) error {
-	return options.UpdateConfig(func (opts *Options) error {
+	return options.UpdateConfig(func(opts *Options) error {
 		for _, distro := range distros {
 			for _, arch := range distro.Architectures {
 				wasconf, all := x.removeRepositoryConfig(opts, distro, arch)
@@ -264,7 +264,7 @@ func (x *CommandWipe) Execute(args []string) error {
 			return err
 		}
 
-		s = s[0:len(s) - 1]
+		s = s[0 : len(s)-1]
 
 		if s == "Y" || s == "y" {
 			if options.Base != "" && options.Base != "/" {
@@ -278,7 +278,7 @@ func (x *CommandWipe) Execute(args []string) error {
 
 func init() {
 	parser.AddCommand("wipe",
-	                  "Remove a build environment (undo init)",
-	                  "The wipe command performs the opposite of the `autobuild init' command. It effectively removes the specified build environment as well as the repository (if it exists). See `autobuild init --help' for information on how to specify the build environment to update. NOTE: if no arguments are given, the wipe command will remove the whole autobuild directory (-b, --base).",
-	                  &CommandWipe{})
+		"Remove a build environment (undo init)",
+		"The wipe command performs the opposite of the `autobuild init' command. It effectively removes the specified build environment as well as the repository (if it exists). See `autobuild init --help' for information on how to specify the build environment to update. NOTE: if no arguments are given, the wipe command will remove the whole autobuild directory (-b, --base).",
+		&CommandWipe{})
 }

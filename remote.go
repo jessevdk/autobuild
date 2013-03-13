@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"net/rpc"
@@ -8,7 +9,6 @@ import (
 	"path"
 	"reflect"
 	"syscall"
-	"fmt"
 )
 
 type PipesReadWrite struct {

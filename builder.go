@@ -1,29 +1,29 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"compress/gzip"
+	"encoding/gob"
+	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
 	"regexp"
-	"io"
-	"bufio"
 	"strings"
 	"sync"
-	"encoding/gob"
-	"encoding/json"
-	"bytes"
 )
 
 type DistroBuildInfo struct {
-	IncomingDir string
-	Changes     string
+	IncomingDir  string
+	Changes      string
 	Distribution Distribution
 	ChangesFiles []string
-	Files       []string
-	Log      *bytes.Buffer
-	Error    error
+	Files        []string
+	Log          *bytes.Buffer
+	Error        error
 }
 
 type BuildInfo struct {
@@ -31,7 +31,7 @@ type BuildInfo struct {
 	Package *ExtractedPackage
 
 	BuildResultsDir string
-	Error error
+	Error           error
 
 	Source   map[string]*DistroBuildInfo
 	Binaries map[string]*DistroBuildInfo
@@ -47,22 +47,22 @@ type ExtractedPackage struct {
 
 type PackageBuilder struct {
 	CurrentlyBuilding *PackageInfo
-	FinishedPackages []*BuildInfo
-	PackageQueue []*PackageInfo
+	FinishedPackages  []*BuildInfo
+	PackageQueue      []*PackageInfo
 
 	notifyQueue chan bool
 
 	Mutex sync.Mutex
 }
 
-var builder = PackageBuilder {
+var builder = PackageBuilder{
 	notifyQueue: make(chan bool, 1024),
 }
 
 var packageInfoRegex *regexp.Regexp
 var changelogSubstituteRegex *regexp.Regexp
 
-func (x *PackageBuilder) Do(fn func (b *PackageBuilder) error) error {
+func (x *PackageBuilder) Do(fn func(b *PackageBuilder) error) error {
 	x.Mutex.Lock()
 	err := fn(x)
 	x.Mutex.Unlock()
@@ -70,8 +70,8 @@ func (x *PackageBuilder) Do(fn func (b *PackageBuilder) error) error {
 	return err
 }
 
-func (x *PackageBuilder) Stage(pname string, fn func (x *PackageBuilder) (*PackageInfo, error)) error {
-	return x.Do(func (b *PackageBuilder) error {
+func (x *PackageBuilder) Stage(pname string, fn func(x *PackageBuilder) (*PackageInfo, error)) error {
+	return x.Do(func(b *PackageBuilder) error {
 		// Check if we are currently building this package
 		if b.CurrentlyBuilding.MatchStageFile(pname) {
 			return fmt.Errorf("The file `%s' is currently building. Please wait until the built is finished to build the package again.", pname)
@@ -107,9 +107,9 @@ func (x *PackageBuilder) Stage(pname string, fn func (x *PackageBuilder) (*Packa
 func (x *PackageBuilder) Run() {
 	for {
 		select {
-		case _ = <- x.notifyQueue:
+		case _ = <-x.notifyQueue:
 			if x.CurrentlyBuilding == nil {
-				x.Do(func (b *PackageBuilder) error {
+				x.Do(func(b *PackageBuilder) error {
 					if len(b.PackageQueue) > 0 {
 						b.CurrentlyBuilding = b.PackageQueue[0]
 						b.PackageQueue = b.PackageQueue[1:]
@@ -126,7 +126,7 @@ func (x *PackageBuilder) Run() {
 					fmt.Printf("Finished building `%s'\n", path.Base(binfo.Info.StageFile))
 				}
 
-				x.Do(func (b *PackageBuilder) error {
+				x.Do(func(b *PackageBuilder) error {
 					b.FinishedPackages = append(b.FinishedPackages, binfo)
 					b.CurrentlyBuilding = nil
 
@@ -197,7 +197,7 @@ func (x *PackageBuilder) extractPackage(info *PackageInfo) (*ExtractedPackage, e
 		os.RemoveAll(tdir)
 
 		return nil, fmt.Errorf("The stage file `%s' does not contain the original tarball `%s'",
-		                       path.Base(info.StageFile), path.Base(origgz))
+			path.Base(info.StageFile), path.Base(origgz))
 	}
 
 	if options.Verbose {
@@ -210,7 +210,7 @@ func (x *PackageBuilder) extractPackage(info *PackageInfo) (*ExtractedPackage, e
 		os.RemoveAll(tdir)
 
 		return nil, fmt.Errorf("The stage file `%s' does not contain the debian diff `%s'",
-		                       path.Base(info.StageFile), path.Base(diffgz))
+			path.Base(info.StageFile), path.Base(diffgz))
 	}
 
 	if options.Verbose {
@@ -273,7 +273,7 @@ func (x *PackageBuilder) substituteUnreleased(changelog string, distro *Distribu
 	return nil
 }
 
-func (x *PackageBuilder) readLines(rd *bufio.Reader, fn func (line string) error) error {
+func (x *PackageBuilder) readLines(rd *bufio.Reader, fn func(line string) error) error {
 	for {
 		line, err := rd.ReadString('\n')
 
@@ -282,7 +282,7 @@ func (x *PackageBuilder) readLines(rd *bufio.Reader, fn func (line string) error
 		}
 
 		if err == nil {
-			line = line[0:len(line)-1]
+			line = line[0 : len(line)-1]
 		}
 
 		e := fn(line)
@@ -308,7 +308,7 @@ func (x *PackageBuilder) parseChanges(info *DistroBuildInfo) error {
 
 	rd := bufio.NewReader(f)
 
-	err = x.readLines(rd, func (line string) error {
+	err = x.readLines(rd, func(line string) error {
 		line = strings.TrimSpace(line)
 
 		if line == "Files:" {
@@ -324,7 +324,7 @@ func (x *PackageBuilder) parseChanges(info *DistroBuildInfo) error {
 
 	info.ChangesFiles = make([]string, 0)
 
-	err = x.readLines(rd, func (line string) error {
+	err = x.readLines(rd, func(line string) error {
 		parts := strings.SplitN(strings.TrimSpace(line), " ", 5)
 
 		if len(parts) == 5 {
@@ -352,16 +352,16 @@ func (x *PackageBuilder) moveResults(info *DistroBuildInfo, resdir string, rmfil
 
 	if err != nil {
 		return fmt.Errorf("Failed to open results directory `%s': %s",
-		                  resdir,
-		                  err)
+			resdir,
+			err)
 	}
 
 	names, err := d.Readdirnames(0)
 
 	if err != nil {
 		return fmt.Errorf("Failed to read build results from `%s': %s",
-		                  resdir,
-		                  err)
+			resdir,
+			err)
 	}
 
 	rmmapping := make(map[string]struct{})
@@ -382,18 +382,18 @@ func (x *PackageBuilder) moveResults(info *DistroBuildInfo, resdir string, rmfil
 		} else {
 			if err := os.Rename(filename, target); err != nil {
 				return fmt.Errorf("Failed to move build result `%s' to target location `%s': %s",
-				                  filename,
-				                  incoming,
-				                  err)
+					filename,
+					incoming,
+					err)
 			}
 
 			if strings.HasSuffix(target, chsuf) {
-				info.Changes = target[0:len(target)-len(chsuf)]
+				info.Changes = target[0 : len(target)-len(chsuf)]
 
 				if err := x.parseChanges(info); err != nil {
 					return fmt.Errorf("Failed to parse changes file `%s': %s",
-					                  info.Changes + ".changes",
-					                  err)
+						info.Changes+".changes",
+						err)
 				}
 			}
 
@@ -418,14 +418,14 @@ func (x *PackageBuilder) extractSourcePackage(info *BuildInfo, distro *Distribut
 	// Extract original orig.tar.gz
 	if err := RunCommandIn(pack.Dir, "tar", "-xzf", pack.OrigGz); err != nil {
 		return fmt.Errorf("Failed to extract original tarball `%s': %s",
-		                  path.Base(pack.OrigGz), err)
+			path.Base(pack.OrigGz), err)
 	}
 
 	// Check if it was extracted correctly
 	if _, err := os.Stat(pkgdir); err != nil {
 		return fmt.Errorf("Did not find original source `%s' after extract original tarball `%s'",
-		                  path.Base(pkgdir),
-		                  path.Base(pack.OrigGz))
+			path.Base(pkgdir),
+			path.Base(pack.OrigGz))
 	}
 
 	if options.Verbose {
@@ -437,7 +437,7 @@ func (x *PackageBuilder) extractSourcePackage(info *BuildInfo, distro *Distribut
 
 	if err != nil {
 		return fmt.Errorf("Failed to open debian diff `%s': %s",
-		                  path.Base(pack.DiffGz), err)
+			path.Base(pack.DiffGz), err)
 	}
 
 	defer dgz.Close()
@@ -446,7 +446,7 @@ func (x *PackageBuilder) extractSourcePackage(info *BuildInfo, distro *Distribut
 
 	if err != nil {
 		return fmt.Errorf("Failed to extract debian diff `%s': %s",
-		                  path.Base(pack.DiffGz), err)
+			path.Base(pack.DiffGz), err)
 	}
 
 	if options.Verbose {
@@ -461,7 +461,7 @@ func (x *PackageBuilder) extractSourcePackage(info *BuildInfo, distro *Distribut
 
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("Failed to run debian debian patch: %s",
-		                  string(out))
+			string(out))
 	}
 
 	dgz.Close()
@@ -482,8 +482,8 @@ func (x *PackageBuilder) extractSourcePackage(info *BuildInfo, distro *Distribut
 
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("Failed to apply distribution specific patch `%s': %s",
-			                  path.Base(patch),
-			                  string(out))
+				path.Base(patch),
+				string(out))
 		}
 	}
 
@@ -504,12 +504,12 @@ func (x *PackageBuilder) extractSourcePackage(info *BuildInfo, distro *Distribut
 func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distribution) error {
 	src := &DistroBuildInfo{
 		IncomingDir: path.Join(options.Base, "incoming", distro.Os, distro.CodeName),
-		Log: &bytes.Buffer {},
+		Log:         &bytes.Buffer{},
 
-		Distribution: Distribution {
-			Os: distro.Os,
-			CodeName: distro.CodeName,
-			Architectures: []string {"source"},
+		Distribution: Distribution{
+			Os:            distro.Os,
+			CodeName:      distro.CodeName,
+			Architectures: []string{"source"},
 		},
 	}
 
@@ -572,12 +572,12 @@ func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distributi
 	bin := &DistroBuildInfo{
 		IncomingDir: path.Join(options.Base, "incoming", distro.Os, distro.CodeName),
 
-		Log: &bytes.Buffer {},
+		Log: &bytes.Buffer{},
 
-		Distribution: Distribution {
-			Os: distro.Os,
-			CodeName: distro.CodeName,
-			Architectures: []string {arch},
+		Distribution: Distribution{
+			Os:            distro.Os,
+			CodeName:      distro.CodeName,
+			Architectures: []string{arch},
 		},
 	}
 
@@ -630,9 +630,9 @@ func (x *PackageBuilder) buildPackage() *BuildInfo {
 	}
 
 	binfo := &BuildInfo{
-		Info:       info,
-		Source:     make(map[string]*DistroBuildInfo),
-		Binaries:   make(map[string]*DistroBuildInfo),
+		Info:     info,
+		Source:   make(map[string]*DistroBuildInfo),
+		Binaries: make(map[string]*DistroBuildInfo),
 	}
 
 	pack, err := x.extractPackage(info)
@@ -668,20 +668,20 @@ func (x *PackageBuilder) buildPackage() *BuildInfo {
 
 type PackageBuilderState struct {
 	FinishedPackages []*BuildInfo
-	PackageQueue []*PackageInfo
+	PackageQueue     []*PackageInfo
 }
 
 func (x *PackageBuilder) Save() {
 	f := path.Join(options.Base, "run", "builder.state")
 
-	x.Do(func (b *PackageBuilder) error {
-		state := PackageBuilderState {
+	x.Do(func(b *PackageBuilder) error {
+		state := PackageBuilderState{
 			FinishedPackages: b.FinishedPackages,
-			PackageQueue: b.PackageQueue,
+			PackageQueue:     b.PackageQueue,
 		}
 
 		if b.CurrentlyBuilding != nil {
-			state.PackageQueue = append([]*PackageInfo {b.CurrentlyBuilding}, state.PackageQueue...)
+			state.PackageQueue = append([]*PackageInfo{b.CurrentlyBuilding}, state.PackageQueue...)
 		}
 
 		fn, err := os.Create(f)
@@ -695,7 +695,7 @@ func (x *PackageBuilder) Save() {
 		if err := enc.Encode(state); err != nil {
 			return err
 		}
-	
+
 		fn.Close()
 		return nil
 	})
@@ -704,7 +704,7 @@ func (x *PackageBuilder) Save() {
 func (x *PackageBuilder) Load() {
 	f := path.Join(options.Base, "run", "builder.state")
 
-	x.Do(func (b *PackageBuilder) error {
+	x.Do(func(b *PackageBuilder) error {
 		fn, err := os.Open(f)
 
 		if err == nil {
@@ -712,7 +712,7 @@ func (x *PackageBuilder) Load() {
 
 			dec := gob.NewDecoder(fn)
 
-			state := &PackageBuilderState {}
+			state := &PackageBuilderState{}
 			err := dec.Decode(state)
 
 			if err != nil {

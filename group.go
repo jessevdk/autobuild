@@ -51,8 +51,8 @@ lookup_group (char const *group)
 import "C"
 
 import (
-	"unsafe"
 	"fmt"
+	"unsafe"
 )
 
 func userIsMemberOfGroup(user string, group string) bool {

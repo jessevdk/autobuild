@@ -1,20 +1,19 @@
 package main
 
 import (
-	"fmt"
 	"bufio"
+	"fmt"
 	"os"
-	"strings"
-	"strconv"
 	"path"
+	"strconv"
+	"strings"
 )
 
 type CommandRelease struct {
 }
 
 func (x *CommandRelease) Execute(args []string) error {
-	a := &Incoming{
-	}
+	a := &Incoming{}
 
 	ret := &IncomingReply{}
 
@@ -33,19 +32,19 @@ func (x *CommandRelease) Execute(args []string) error {
 	longest := len(fmt.Sprintf("%d", len(ret.Packages)))
 
 	for i, r := range ret.Packages {
-		n := fmt.Sprintf("%d", i + 1)
-		pad := strings.Repeat(" ", longest - len(n))
+		n := fmt.Sprintf("%d", i+1)
+		pad := strings.Repeat(" ", longest-len(n))
 
 		fmt.Printf("  %s%s) %s/%s %s %s\n",
-		           pad,
-		           n,
-		           r.Distribution.Os,
-		           r.Distribution.CodeName,
-		           r.Distribution.Architectures[0],
-		           path.Base(r.Name))
+			pad,
+			n,
+			r.Distribution.Os,
+			r.Distribution.CodeName,
+			r.Distribution.Architectures[0],
+			path.Base(r.Name))
 
 		for _, f := range r.Files {
-			fmt.Printf("  %s%s\n", strings.Repeat(" ", longest + 4), path.Base(f))
+			fmt.Printf("  %s%s\n", strings.Repeat(" ", longest+4), path.Base(f))
 		}
 
 		fmt.Println()
@@ -60,7 +59,7 @@ func (x *CommandRelease) Execute(args []string) error {
 		return err
 	}
 
-	line = line[0:len(line)-1]
+	line = line[0 : len(line)-1]
 
 	packages := make([]IncomingPackage, 0)
 
@@ -83,7 +82,7 @@ func (x *CommandRelease) Execute(args []string) error {
 				return err
 			}
 
-			packages = append(packages, ret.Packages[int(idx) - 1])
+			packages = append(packages, ret.Packages[int(idx)-1])
 		} else {
 			start, err := strconv.ParseInt(rng[0], 10, 32)
 
@@ -111,7 +110,7 @@ func (x *CommandRelease) Execute(args []string) error {
 
 func init() {
 	parser.AddCommand("release",
-	                  "Release packages that have been built",
-	                  "The release command releases packages that have finished building. You will be presented with a list of finished packages and you can choose which packages to release. Note that you can specify packages by a comma separated list of their number (e.g. 1,2), ranges (e.g. 1:3) or use `*' to release all packages.",
-	                  &CommandRelease{})
+		"Release packages that have been built",
+		"The release command releases packages that have finished building. You will be presented with a list of finished packages and you can choose which packages to release. Note that you can specify packages by a comma separated list of their number (e.g. 1,2), ranges (e.g. 1:3) or use `*' to release all packages.",
+		&CommandRelease{})
 }

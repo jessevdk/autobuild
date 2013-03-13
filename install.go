@@ -1,13 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
-	"bufio"
-	"strings"
 	"strconv"
-	"io/ioutil"
+	"strings"
 )
 
 type CommandInstall struct {
@@ -22,7 +22,7 @@ func (x *CommandInstall) makeGroup() (int, error) {
 
 	if err != nil {
 		fmt.Printf("Creating group `%s'\n", options.Group)
-		opts := []string {}
+		opts := []string{}
 
 		if !options.Verbose {
 			opts = append(opts, "--quiet")
@@ -60,7 +60,7 @@ func (x *CommandInstall) readOption(q string, retval *string) error {
 		return err
 	}
 
-	line = line[0:len(line)-1]
+	line = line[0 : len(line)-1]
 
 	if len(line) != 0 {
 		*retval = line
@@ -70,7 +70,7 @@ func (x *CommandInstall) readOption(q string, retval *string) error {
 }
 
 type SignKey struct {
-	Id string
+	Id   string
 	Date string
 	Name string
 }
@@ -83,8 +83,8 @@ func (x *CommandInstall) parseSignKeys(s string) []SignKey {
 		fields := strings.Split(part, ":")
 
 		if fields[0] == "pub" {
-			ret = append(ret, SignKey {
-				Id: fields[4],
+			ret = append(ret, SignKey{
+				Id:   fields[4],
 				Date: fields[5],
 				Name: fields[9],
 			})
@@ -97,7 +97,7 @@ func (x *CommandInstall) parseSignKeys(s string) []SignKey {
 func (x *CommandInstall) listSignKeys() ([]SignKey, error) {
 	gpgdir := path.Join(options.Base, ".gnupg")
 
-	args := []string {
+	args := []string{
 		"--homedir", gpgdir,
 		"--list-public-keys",
 		"--with-colons",
@@ -124,7 +124,7 @@ func (x *CommandInstall) exportSignKey() error {
 	gpgdir := path.Join(options.Base, ".gnupg")
 	keyfile := path.Join(options.Base, "repository", "sign.key")
 
-	args := []string {
+	args := []string{
 		"--homedir", gpgdir,
 		"--armor",
 		"--output", keyfile,
@@ -164,14 +164,14 @@ func (x *CommandInstall) configureSignKey() error {
 		fmt.Println()
 
 		for i, key := range signkeys {
-			fmt.Printf("         %d) %s  %s, %s\n", i + 1, key.Id, key.Date, key.Name)
+			fmt.Printf("         %d) %s  %s, %s\n", i+1, key.Id, key.Date, key.Name)
 		}
 
-		fmt.Printf("         %d) Generate a new key\n", len(signkeys) + 1)
+		fmt.Printf("         %d) Generate a new key\n", len(signkeys)+1)
 		fmt.Println()
 
 		for {
-			fmt.Printf("         Key to use: [generate new key] ");
+			fmt.Printf("         Key to use: [generate new key] ")
 			rd := bufio.NewReader(os.Stdin)
 
 			s, err := rd.ReadString('\n')
@@ -180,7 +180,7 @@ func (x *CommandInstall) configureSignKey() error {
 				return err
 			}
 
-			s = s[0:len(s) - 1]
+			s = s[0 : len(s)-1]
 
 			if len(s) == 0 {
 				fmt.Println()
@@ -189,7 +189,7 @@ func (x *CommandInstall) configureSignKey() error {
 
 			choice, err := strconv.ParseInt(s, 10, 32)
 
-			if err != nil || choice < 1 || int(choice) > len(signkeys) + 1 {
+			if err != nil || choice < 1 || int(choice) > len(signkeys)+1 {
 				continue
 			}
 
@@ -230,7 +230,7 @@ func (x *CommandInstall) configureSignKey() error {
 
 		gpgdir := path.Join(options.Base, ".gnupg")
 
-		args := []string {
+		args := []string{
 			"--homedir", gpgdir,
 			"--gen-key",
 			"--batch",
@@ -278,7 +278,7 @@ func (x *CommandInstall) configureSignKey() error {
 			return err
 		}
 
-		args = []string {
+		args = []string{
 			"--homedir", gpgdir,
 			"--no-default-keyring",
 			"--secret-keyring", secring,
@@ -305,12 +305,12 @@ func (x *CommandInstall) configureSignKey() error {
 
 		if options.Verbose {
 			fmt.Printf("       Importing key: %s  %s, %s\n",
-			           newkeys[0].Id,
-			           newkeys[0].Date,
-			           newkeys[0].Name)
+				newkeys[0].Id,
+				newkeys[0].Date,
+				newkeys[0].Name)
 		}
 
-		args = []string {
+		args = []string{
 			"--homedir", gpgdir,
 		}
 
@@ -438,12 +438,12 @@ func (x *CommandInstall) Execute(args []string) error {
 	}
 
 	fmt.Printf("Installation complete. autobuild has been setup in `%s'. You can change the autobuild configuration by editing the etc/autobuild.json file in this directory, or by using the `autobuild config' command.\n",
-	            options.Base)
+		options.Base)
 
 	fmt.Println()
 	fmt.Printf("Your repository will be available on `http://localhost:%s' when running the daemon. You can change the port in the configuration if you want. You should proxy your frontend webserver (e.g. apache, nginx, cherokee, etc.) to this webserver. The repository public sign key is available at `http://localhost:%s/sign.key'.\n",
-	           options.Repository.ListenPort,
-	           options.Repository.ListenPort)
+		options.Repository.ListenPort,
+		options.Repository.ListenPort)
 
 	fmt.Println()
 	fmt.Println("The debian repositories will be available using the following apt deb line:")
@@ -460,7 +460,7 @@ func (x *CommandInstall) Execute(args []string) error {
 
 func init() {
 	parser.AddCommand("install",
-	                  "Install all dependencies and first time configuration of autobuild",
-	                  "The install command uses apt-get to make sure you have all the necessary dependencies installed (e.g. cowbuilder, reprepro). It then performs a first-time configuration, creating the autobuild directory structure at (-b, --base) and configuring the main settings. Note that you can call the install command several times to reconfigure autobuild.",
-	                  &CommandInstall{})
+		"Install all dependencies and first time configuration of autobuild",
+		"The install command uses apt-get to make sure you have all the necessary dependencies installed (e.g. cowbuilder, reprepro). It then performs a first-time configuration, creating the autobuild directory structure at (-b, --base) and configuring the main settings. Note that you can call the install command several times to reconfigure autobuild.",
+		&CommandInstall{})
 }
