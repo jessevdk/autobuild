@@ -599,7 +599,7 @@ func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distributi
 		"--buildresult", info.BuildResultsDir,
 		"--debbuildopts", "-us",
 		"--debbuildopts", "-uc",
-		"--debbuildopts", debBuildOpt )
+		"--debbuildopts", debBuildOpt)
 
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, fmt.Sprintf("DIST=%s/%s", distro.Os, distro.CodeName))
@@ -666,12 +666,10 @@ func (x *PackageBuilder) buildPackage() *BuildInfo {
 			return binfo
 		}
 
-		buildBinaryIndep := true
-
-		for _, arch := range distro.Architectures {
-			x.buildBinaryPackages(binfo, distro, arch, buildBinaryIndep)
+		for i, arch := range distro.Architectures {
 			//we build binary-indep packages only for the first architecture supported
-			buildBinaryIndep = false
+			buildBinaryIndep := i == 0
+			x.buildBinaryPackages(binfo, distro, arch, buildBinaryIndep)
 		}
 	}
 
