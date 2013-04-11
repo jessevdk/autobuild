@@ -10,6 +10,7 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"bytes"
 )
 
 type CommandInit struct {
@@ -283,8 +284,10 @@ func (x *CommandInit) Execute(args []string) error {
 			basepath := path.Join(options.Base, "pbuilder", distro.Os, distro.CodeName+"-"+arch)
 			os.MkdirAll(path.Join(basepath, "aptcache"), 0755)
 
+			var cerr bytes.Buffer
+			cmd.Stderr = &cerr
 			if err := cmd.Run(); err != nil {
-				return err
+				return fmt.Errorf("Could not create environment with %s : %s.\nProgram stderr :\n%s",cmd.Args,err.Error(),cerr.String())
 			}
 
 			fmt.Printf("Finished creating environment in `%s'\n", basepath)
