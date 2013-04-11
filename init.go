@@ -239,6 +239,13 @@ func ParseDistributions(args []string) ([]*Distribution, error) {
 }
 
 func (x *CommandInit) Execute(args []string) error {
+	if _, err := os.Stat(path.Join(options.Base,"etc")); err != nil {
+		if os.IsNotExist(err) {
+			return errors.New("autobuild seems not correctly installed, please run `autobuild install' first")
+		}
+	}
+
+
 	if len(args) == 0 {
 		return errors.New("Please specify the distribution you want to build for (e.g. ubuntu/precise)")
 	}
