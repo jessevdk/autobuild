@@ -19,7 +19,7 @@ func prepareCommand(name string, arg ...string) *exec.Cmd {
 
 func runCommandReal(cmd *exec.Cmd) error {
 	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error running command: %s\n", err)
+		fmt.Fprintf(os.Stderr, "Error running command %s : %s\n",cmd.Args, err)
 		return err
 	}
 
@@ -33,8 +33,12 @@ func RunCommand(name string, arg ...string) error {
 func RunOutputCommand(name string, arg ...string) ([]byte, error) {
 	cmd := MakeCommand(name, arg...)
 	cmd.Stdout = nil
-
-	return cmd.Output()
+	if out,err := cmd.Output(); err != nil {
+		return nil, fmt.Errorf("Error running command %s : %s.",cmd.Args,err)
+	} else {
+		return out,err
+	}
+	return nil,nil
 }
 
 func RunCommandIn(wd string, name string, arg ...string) error {
