@@ -292,6 +292,7 @@ func (x *CommandInit) Execute(args []string) error {
 
 			var cerr bytes.Buffer
 			cmd.Stderr = &cerr
+
 			if err := cmd.Run(); err != nil {
 				return fmt.Errorf("Could not create environment with %s : %s.\nProgram stderr :\n%s", cmd.Args, err.Error(), cerr.String())
 			}
