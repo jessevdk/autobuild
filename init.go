@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -10,7 +11,6 @@ import (
 	"path"
 	"runtime"
 	"strings"
-	"bytes"
 )
 
 type CommandInit struct {
@@ -239,12 +239,11 @@ func ParseDistributions(args []string) ([]*Distribution, error) {
 }
 
 func (x *CommandInit) Execute(args []string) error {
-	if _, err := os.Stat(path.Join(options.Base,"etc")); err != nil {
+	if _, err := os.Stat(path.Join(options.Base, "etc")); err != nil {
 		if os.IsNotExist(err) {
 			return errors.New("autobuild seems not correctly installed, please run `autobuild install' first")
 		}
 	}
-
 
 	if len(args) == 0 {
 		return errors.New("Please specify the distribution you want to build for (e.g. ubuntu/precise)")
@@ -294,7 +293,7 @@ func (x *CommandInit) Execute(args []string) error {
 			var cerr bytes.Buffer
 			cmd.Stderr = &cerr
 			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("Could not create environment with %s : %s.\nProgram stderr :\n%s",cmd.Args,err.Error(),cerr.String())
+				return fmt.Errorf("Could not create environment with %s : %s.\nProgram stderr :\n%s", cmd.Args, err.Error(), cerr.String())
 			}
 
 			fmt.Printf("Finished creating environment in `%s'\n", basepath)
