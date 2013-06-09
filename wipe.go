@@ -84,7 +84,7 @@ func (x *CommandWipe) rewriteConf(confpath string, fn func(line string) (string,
 	tmp.Close()
 	fr.Close()
 
-	if err := os.Rename(tmp.Name(), confpath); err != nil {
+	if err := MoveFile(tmp.Name(), confpath); err != nil {
 		return err
 	}
 
