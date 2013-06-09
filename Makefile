@@ -53,4 +53,4 @@ uninstall:
 $(TARGET).man: .gen-man
 	$(call vecho,MAN,$@) ./.gen-man > $@
 
-.PHONY: install clean all
+.PHONY: install clean all .gen-man
