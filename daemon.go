@@ -54,6 +54,8 @@ func (x *CommandDaemon) Execute(args []string) error {
 	if options.UseTmpfs {
 		builddir := path.Join(options.Base, "pbuilder", "build")
 
+		os.MkdirAll(builddir, 0755)
+
 		if err := RunCommand("mount", "-t", "tmpfs", "tmpfs", builddir); err == nil {
 			defer RunCommand("umount", builddir)
 		}
