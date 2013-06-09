@@ -30,17 +30,16 @@ type Options struct {
 	Verbose  bool                   `short:"v" long:"verbose" description:"Verbose output" json:"-"`
 	Version  func() error           `short:"V" long:"version" description:"Print the version" json:"-"`
 
-	Remote string `short:"r" long:"remote" description:"Remote host for autobuild client commands" json:"remote,omitempty"`
+	Remote string `short:"r" long:"remote" json:"remote,omitempty" description:"Remote host for autobuild client commands"`
 
-	BuildOptions BuildOptions `json:"build-options,omit-empty" config:"-"`
+	BuildOptions BuildOptions           `json:"build-options,omit-empty" config:"-"`
+	Pbuilder     string                 `json:"pbuilder"`
+	UseTmpfs     bool                   `json:"use-tmpfs"`
+	Repository   RepositoryOptions      `json:"repository"`
+	GroupFlag    func(val string) error `short:"g" long:"group" description:"Authenticated group for autobuild communication" default:"autobuild"`
 
-	Group string `short:"g" long:"group" description:"Authenticated group for autobuild communication" default:"autobuild" json:"group,omitempty"`
-
-	Pbuilder string `json:"pbuilder" no-flag:"-"`
-
-	UseTmpfs bool `json:"use-tmpfs" no-flag:"-"`
-
-	Repository RepositoryOptions `json:"repository" no-flag:"-"`
+	Group   string `json:"group,omitempty"`
+	GroupId uint32 `json:"-"`
 }
 
 func (x *Options) LoadConfig() {
@@ -151,6 +150,13 @@ func init() {
 	options.BaseFlag = func(arg string) error {
 		options.Base = arg
 		options.LoadConfig()
+		return nil
+	}
+
+	options.GroupFlag = func(arg string) error {
+		options.Group = arg
+		options.GroupId, _ = lookupGroupId(arg)
+
 		return nil
 	}
 
