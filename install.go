@@ -404,6 +404,10 @@ func (x *CommandInstall) firstTimeConfiguration() error {
 }
 
 func (x *CommandInstall) Execute(args []string) error {
+	if _, err := os.Stat(path.Join(options.Base, "run", "autobuild.sock")); err == nil {
+		return fmt.Errorf("It appears the autobuild daemon is running, please stop it before running `install'")
+	}
+
 	pkgs := []string{
 		options.Pbuilder,
 		"devscripts",
