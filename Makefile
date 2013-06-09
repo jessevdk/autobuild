@@ -26,7 +26,7 @@ SECTIONS = $(foreach i,$(RESOURCES),--add-section autobuild_res_$(subst resource
 
 MANINSTALLDIR = $(INSTALLDIR)/share/man/man1
 
-all: $(TARGET) $(TARGET).man
+all: $(TARGET)
 
 $(TARGET): $(SOURCES) $(RESOURCES)
 	$(call vecho,GC,$@) $(GC) build -o $@ $(SOURCES) && \
