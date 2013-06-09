@@ -18,6 +18,30 @@ import (
 	"sync/atomic"
 )
 
+type Error string
+
+func (x *Error) MarshalJSON() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
+
+	return json.Marshal(x.Error())
+}
+
+func (x *Error) Error() string {
+	return string(*x)
+}
+
+func WrapError(err error) *Error {
+	if err == nil {
+		return nil
+	}
+
+	e := Error(err.Error())
+
+	return &e
+}
+
 type DistroBuildInfo struct {
 	IncomingDir  string
 	Changes      string
@@ -522,7 +546,7 @@ func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distributio
 		fmt.Printf("Building source package...\n")
 	}
 
-	src.Error = x.extractSourcePackage(info, distro)
+	src.Error = WrapError(x.extractSourcePackage(info, distro))
 
 	if src.Error != nil {
 		info.Source[distro.SourceName()] = src
@@ -561,7 +585,7 @@ func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distributio
 		fmt.Printf("Run pdebuild for source in `%s'...\n", info.Package.Dir)
 	}
 
-	src.Error = cmd.Run()
+	src.Error = WrapError(cmd.Run())
 
 	src.Log = log.String()
 
@@ -626,7 +650,7 @@ func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distributi
 	cmd.Stdout = wr
 	cmd.Stderr = wr
 
-	bin.Error = cmd.Run()
+	bin.Error = WrapError(cmd.Run())
 
 	bin.Log = log.String()
 
@@ -657,7 +681,7 @@ func (x *PackageBuilder) buildPackage() *BuildInfo {
 	pack, err := x.extractPackage(info)
 
 	if err != nil {
-		binfo.Error = err
+		binfo.Error = WrapError(err)
 		return binfo
 	}
 
