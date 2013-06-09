@@ -142,7 +142,8 @@ func (x *CommandInit) addArch(distro *Distribution, arch string) error {
 	fwr.Close()
 	frd.Close()
 
-	os.Rename(fwr.Name(), frd.Name())
+	MoveFile(fwr.Name(), frd.Name())
+
 	os.Chmod(frd.Name(), 0644)
 
 	return nil
