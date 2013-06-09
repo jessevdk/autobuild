@@ -7,19 +7,15 @@
         <script type="text/javascript">
             $(document).ready(function () {
                 $.getJSON('/queue', function (data, status) {
-                    console.log(data);
                     show_queue(data);
                 })
             });
 
-            var packages;
-            var single_packages;
-
-            function make_single_package(name, p)
+            function make_single_package(p)
             {
-                var sp = $('<div class="subpackage"/>');
-                var names = name.split('/');
+                var sp = $('<div class="subpackage"/>').attr({'data-package-id': p.Id});
 
+                var names = [p.Distribution.os, p.Distribution.codename, p.Distribution.architectures[0]]
                 var nn = $('<div class="names"/>');
 
                 nn.append($('<input type="checkbox"/>'));
@@ -29,8 +25,7 @@
                 });
 
                 var st = $('<div class="status"/>');
-                var ch = p.Changes.replace(/.*\//g, '');
-                var alog = '(<a href="/queue/log/' + ch + '">log</a>)';
+                var alog = '(<a href="/queue/log/' + p.Id + '">log</a>)';
 
                 if (p.Error == null)
                 {
@@ -49,7 +44,7 @@
                     var fname = file.substring(idir.length + 1);
 
                     var a = $('<a/>', {
-                        href: '/queue/download/' + ch + '/' + fname
+                        href: '/queue/download/' + p.Id + '/' + fname
                     }).text(fname);
 
                     var li = $('<li/>').append(a);
@@ -59,8 +54,6 @@
                 sp.append(st);
                 sp.append(nn);
                 sp.append(files);
-
-                single_packages.push(p);
 
                 return sp;
             }
@@ -77,24 +70,72 @@
 
                 var packs = {};
 
-                $.each(p.Source, function (key, value) {
-                    pd.append(make_single_package(key + '/source', value));
+                $.each(p.Packages, function (key, value) {
+                    pd.append(make_single_package(value));
                 });
 
-                $.each(p.Binaries, function (key, value) {
-                    pd.append(make_single_package(key, value));
-                });
+                return pd;
+            }
+
+            function make_building(info)
+            {
+                if (!info)
+                {
+                    return $('<div class="status"/>').text('There are no packages currently building.');
+                }
+
+                var pd = $('<div class="building_package"/>');
+                var n = $('<div class="name"/>');
+
+                n.append($('<span class="name"/>').text(info.Name));
+                n.append($('<span class="version"/>').text(info.Version));
+
+                pd.append(n);
+
+                return pd;
+            }
+
+            function make_queued(p)
+            {
+                var pd = $('<div class="queued_package"/>');
+                var n = $('<div class="name"/>');
+
+                n.append($('<span class="name"/>').text(info.Name));
+                n.append($('<span class="version"/>').text(info.Version));
+
+                pd.append(n);
 
                 return pd;
             }
 
             function show_queue(q)
             {
+                var current = $('#currently_building');
+
+                current.empty();
+                current.append(make_building(q.building));
+
+                var queued = $('#package_queue');
+                queued.empty();
+
+                console.log(q);
+
+                if (q.queue && q.queue.length > 0)
+                {
+                    for (var i = 0; i < q.queue.length; ++i)
+                    {
+                        queued.append(make_queued(q.queue[i]));
+                    }
+                }
+                else
+                {
+                    queued.append($('<div class="status"/>').text('There are no packages currently in the queue.'));
+                }
+
                 var dq = $('#queue');
 
                 dq.empty();
 
-                single_packages = [];
                 packages = q.packages;
 
                 for (var i = 0; i < q.packages.length; ++i)
@@ -102,9 +143,15 @@
                     dq.append(make_package(q.packages[i]));
                 }
 
+                if (q.packages.length == 0)
+                {
+                    dq.append($('<div class="status"/>').text('There are no finished packages.'));
+                }
+
                 var bt = $('<div class="buttons"/>');
 
-                var stage = $('<input type="button" value="Stage"/>');
+                var file_upload = $('<input type="file" value="File Upload" id="file_upload"/>');
+                var stage = $('<input type="button" id="stage" value="Stage package"/>');
                 var release = $('<input type="button" value="Release"/>');
                 var discard = $('<input type="button" value="Discard"/>');
 
@@ -112,6 +159,9 @@
                 release.on('click', do_release);
                 discard.on('click', do_discard);
 
+                file_upload.on('change', do_file_upload);
+
+                bt.append(file_upload);
                 bt.append(stage);
                 bt.append(discard);
                 bt.append(release);
@@ -119,14 +169,117 @@
                 dq.append(bt);
             }
 
-            function do_stage()
+            function file_upload_progress(e)
             {
-                
+                if (e.lengthComputable)
+                {
+                    $('progress').attr({value:e.loaded, max:e.total});
+                }
             }
 
-            function delete_from_queue(packages)
+            function file_upload_complete(data, textStatus, jqxhr)
             {
-                
+                var errors = [];
+
+                var upload = $('#file_upload')[0];
+                upload.value = '';
+
+                $('progress').remove();
+
+                $.each(data, function (k, v) {
+                    if (v.Error)
+                    {
+                        errors.push(v.Error);
+                    }
+                });
+
+                if (errors.length > 0)
+                {
+                    alert(errors);
+                }
+            }
+
+            function do_file_upload()
+            {
+                var upload = $('#file_upload')[0];
+
+                if (upload.files.length == 0)
+                {
+                    return;
+                }
+
+                var pgs = $('<progress/>');
+                $('body').append(pgs);
+
+                var data = new FormData();
+
+                for (var i = 0; i < upload.files.length; i++)
+                {
+                    data.append('file_' + i, upload.files[i]);
+                }
+
+                // Start file upload through ajax
+                $.ajax({
+                    type: 'POST',
+                    url: '/queue/stage',
+                    data: data,
+                    success: file_upload_complete,
+                    cache: false,
+                    contentType: false,
+                    processData: false,
+                    xhr: function() {
+                        myxhr = $.ajaxSettings.xhr();
+
+                        if (myxhr.upload)
+                        {
+                            $(myxhr.upload).on('progress', file_upload_progress);
+                        }
+
+                        return myxhr;
+                    }
+                });
+            }
+
+            function do_stage()
+            {
+                var ev = document.createEvent('MouseEvents');
+
+                ev.initMouseEvent('click',
+                                  true,
+                                  true,
+                                  document.defaultView,
+                                  1,
+                                  0,
+                                  0,
+                                  0,
+                                  0,
+                                  false,
+                                  false,
+                                  false,
+                                  false,
+                                  0,
+                                  null);
+
+                $('#file_upload')[0].dispatchEvent(ev);
+            }
+
+            function delete_from_queue(data)
+            {
+                if (!data.Packages)
+                {
+                    return;
+                }
+
+                $.each(data.Packages, function (i, id) {
+                    $('.subpackage[data-package-id="' + id + '"]').remove();
+                });
+
+                $('.package').each(function(_, p) {
+                    if ($(p).find('.subpackage').length == 0)
+                    {
+                        $(p).remove();
+                    }
+                })
             }
 
             function do_release()
@@ -138,15 +291,15 @@
                     return;
                 }
 
-                $.ajax('/queue/release', {
-                    data: JSON.stringify(sel),
-                    contentType: 'application/json',
-                    type: 'POST',
+                $.post('/queue/release/' + JSON.stringify(sel),
+                       {},
 
-                    success: function (data, status) {
-                        delete_from_queue(data);
-                    }
-                });
+                       function (data, status) {
+                           delete_from_queue(data);
+                       },
+
+                       'json'
+                );
             }
 
             function do_discard()
@@ -158,15 +311,15 @@
                     return;
                 }
 
-                $.ajax('/queue/discard', {
-                    data: JSON.stringify(sel),
-                    contentType: 'application/json',
-                    type: 'POST',
+                $.post('/queue/discard/' + JSON.stringify(sel),
+                       {},
 
-                    success: function (data, status) {
-                        delete_from_queue(data);
-                    }
-                });
+                       function (data, status) {
+                           delete_from_queue(data);
+                       },
+
+                       'json'
+                );
             }
 
             function selected_packages()
@@ -176,7 +329,7 @@
                 $('#queue').find("input[type='checkbox']").each(function (i, ch) {
                     if ($(ch).is(':checked'))
                     {
-                        ret.push(single_packages[i]);
+                        ret.push(parseInt($(ch).parents('.subpackage').attr('data-package-id')));
                     }
                 });
 
@@ -242,14 +395,50 @@
                 color: #333;
             }
 
-            #queue {
+            #centered {
                 width: 60%;
                 margin: 0 auto;
+            }
+
+            input[type='file'] {
+                display: none;
+            }
+
+            input#stage {
+                float: left;
+            }
+
+            progress {
+                position: fixed;
+                bottom: 5px;
+                right: 5px;
+                width: 150px;
+            }
+
+            .header {
+                font-size: 1.3em;
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+
+            #currently_building, #package_queue {
+                margin-bottom: 15px;
             }
         </style>
     </head>
     <body>
+        <div id="centered">
+        <div class="header">Currently Building</div>
+        <div id="currently_building">
+        </div>
+
+        <div class="header">Package Queue</div>
+        <div id="package_queue">
+        </div>
+
+        <div class="header">Finished Packages</div>
         <div id="queue">
+        </div>
         </div>
     </body>
 </html>

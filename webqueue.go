@@ -4,12 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path"
+	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -30,58 +33,193 @@ func (x *ResourceFS) Open(name string) (http.File, error) {
 	return res, nil
 }
 
-func WebQueueServiceHandle(w http.ResponseWriter, r *http.Request, uid uint32) {
-	if r.URL.Path == "/queue" {
-		w.Header().Add("Content-type", "application/json")
+func WebQueueServiceHandleQueue(w http.ResponseWriter, r *http.Request, uid uint32) {
+	w.Header().Add("Content-type", "application/json")
 
-		// Index
-		builder.Do(func(b *PackageBuilder) error {
-			packages := make([]*BuildInfo, 0)
+	// Index
+	builder.Do(func(b *PackageBuilder) error {
+		packages := make([]*BuildInfo, 0)
 
-			for _, res := range b.FinishedPackages {
-				if res.Info.Uid != uid {
-					continue
-				}
-
+		for _, res := range b.FinishedPackages {
+			if res.Info.Uid == uid {
 				packages = append(packages, res)
 			}
-
-			enc := json.NewEncoder(w)
-
-			enc.Encode(map[string][]*BuildInfo{
-				"packages": packages,
-			})
-
-			return nil
-		})
-	} else if r.URL.Path == "/queue/release" || r.URL.Path == "/queue/discard" {
-		packages := make([]uint64, 0)
-
-		dec := json.NewDecoder(r.Body)
-		dec.Decode(&packages)
-
-		var retpack []uint64
-		var err error
-
-		if r.URL.Path == "/queue/release" {
-			retpack, err = builder.Release(packages)
-		} else if r.URL.Path == "/queue/discard" {
-			retpack, err = builder.Discard(packages)
 		}
 
 		enc := json.NewEncoder(w)
 
-		ret := struct {
-			Packages []uint64
-			Error    error
-		}{
-			Packages: retpack,
-			Error:    err,
+		return enc.Encode(map[string]interface{}{
+			"packages": packages,
+			"building": b.CurrentlyBuilding,
+			"queue":    b.PackageQueue,
+		})
+	})
+}
+
+func decodeWebPackages(r *http.Request, prefix string, uid uint32) []uint64 {
+	packages := make([]uint64, 0)
+
+	rest := r.URL.Path[len(prefix):]
+
+	json.Unmarshal([]byte(rest), &packages)
+	return packages
+}
+
+func encodeWebPackages(w http.ResponseWriter, pkgs []uint64, err error) {
+	enc := json.NewEncoder(w)
+
+	ret := struct {
+		Packages []uint64
+		Error    error
+	}{
+		Packages: pkgs,
+		Error:    err,
+	}
+
+	w.Header().Add("Content-type", "application/json")
+	enc.Encode(ret)
+}
+
+func WebQueueServiceHandleRelease(w http.ResponseWriter, r *http.Request, uid uint32) {
+	pkgs, err := builder.Release(decodeWebPackages(r, "/queue/release/", uid), uid)
+	encodeWebPackages(w, pkgs, err)
+}
+
+func WebQueueServiceHandleDiscard(w http.ResponseWriter, r *http.Request, uid uint32) {
+	pkgs, err := builder.Discard(decodeWebPackages(r, "/queue/discard/", uid), uid)
+	encodeWebPackages(w, pkgs, err)
+}
+
+func WebQueueServiceHandleDownload(w http.ResponseWriter, r *http.Request, uid uint32) {
+	downprefix := "/queue/download/"
+
+	rest := r.URL.Path[len(downprefix):]
+	parts := strings.SplitN(rest, "/", 2)
+
+	if len(parts) != 2 {
+		return
+	}
+
+	id, err := strconv.ParseUint(parts[0], 10, 64)
+
+	if err != nil {
+		return
+	}
+
+	file := parts[1]
+
+	var pkg *DistroBuildInfo
+
+	// Find package with this id
+	if err := builder.Do(func(b *PackageBuilder) error {
+		_, pkg = b.FindPackage(id)
+		return nil
+	}); err != nil {
+		return
+	}
+
+	if pkg == nil {
+		return
+	}
+
+	if strings.HasSuffix(file, ".dsc") || strings.HasSuffix(file, ".changes") {
+		w.Header().Add("Content-type", "text/plain")
+	} else {
+		w.Header().Add("Content-disposition",
+			fmt.Sprintf("attachment; filename=\"%s\"",
+				file))
+
+		if strings.HasSuffix(file, ".tar.gz") {
+			w.Header().Add("Content-type", "application/x-gzip-compressed-tar")
+		} else if strings.HasSuffix(file, ".gz") {
+			w.Header().Add("Content-type", "application/x-gzip")
+		} else if strings.HasSuffix(file, ".deb") {
+			w.Header().Add("Content-type", "application/x-deb")
+		}
+	}
+
+	for _, f := range pkg.Files {
+
+		if path.Base(f) == file {
+			rd, err := os.Open(f)
+
+			if err == nil {
+				io.Copy(w, rd)
+				rd.Close()
+			}
+
+			break
+		}
+	}
+}
+
+func WebQueueServiceHandleLog(w http.ResponseWriter, r *http.Request, uid uint32) {
+	logprefix := "/queue/log/"
+
+	id, err := strconv.ParseUint(r.URL.Path[len(logprefix):], 10, 64)
+
+	if err != nil {
+		return
+	}
+
+	var pkg *DistroBuildInfo
+
+	// Find package with this id
+	if err := builder.Do(func(b *PackageBuilder) error {
+		_, pkg = b.FindPackage(id)
+		return nil
+	}); err != nil {
+		return
+	}
+
+	if pkg != nil {
+		w.Header().Add("Content-type", "text/plain")
+		io.WriteString(w, pkg.Log)
+	}
+}
+
+func WebQueueStage(file *multipart.FileHeader, uid uint32) (*PackageInfo, error) {
+	return builder.Stage(file.Filename, uid, func(b *PackageBuilder, writer io.Writer) error {
+		f, err := file.Open()
+
+		if err != nil {
+			return err
 		}
 
-		w.Header().Add("Content-type", "application/json")
-		enc.Encode(ret)
+		defer f.Close()
+		_, err = io.Copy(writer, f)
+
+		return err
+	})
+}
+
+func WebQueueServiceHandleStage(w http.ResponseWriter, r *http.Request, uid uint32) {
+	if err := r.ParseMultipartForm(0); err != nil {
+		return
 	}
+
+	type WebStageReply struct {
+		Info  *PackageInfo
+		Error error
+	}
+
+	ret := make(map[string]WebStageReply)
+
+	for name, headers := range r.MultipartForm.File {
+		for _, header := range headers {
+			info, err := WebQueueStage(header, uid)
+
+			ret[name] = WebStageReply{
+				info,
+				WrapError(err),
+			}
+		}
+	}
+
+	enc := json.NewEncoder(w)
+
+	w.Header().Add("Content-type", "application/json")
+	enc.Encode(ret)
 }
 
 func RunWebQueueService(filename string, uid uint32) (chan bool, error) {
@@ -102,8 +240,28 @@ func RunWebQueueService(filename string, uid uint32) (chan bool, error) {
 
 	mux.Handle("/", http.FileServer(http.Dir("resources/webqueue")))
 
-	mux.HandleFunc("/queue", func(w http.ResponseWriter, r *http.Request) {
-		WebQueueServiceHandle(w, r, uid)
+	mux.HandleFunc("/queue/", func(w http.ResponseWriter, r *http.Request) {
+		WebQueueServiceHandleQueue(w, r, uid)
+	})
+
+	mux.HandleFunc("/queue/log/", func(w http.ResponseWriter, r *http.Request) {
+		WebQueueServiceHandleLog(w, r, uid)
+	})
+
+	mux.HandleFunc("/queue/download/", func(w http.ResponseWriter, r *http.Request) {
+		WebQueueServiceHandleDownload(w, r, uid)
+	})
+
+	mux.HandleFunc("/queue/stage", func(w http.ResponseWriter, r *http.Request) {
+		WebQueueServiceHandleStage(w, r, uid)
+	})
+
+	mux.HandleFunc("/queue/discard/", func(w http.ResponseWriter, r *http.Request) {
+		WebQueueServiceHandleDiscard(w, r, uid)
+	})
+
+	mux.HandleFunc("/queue/release/", func(w http.ResponseWriter, r *http.Request) {
+		WebQueueServiceHandleRelease(w, r, uid)
 	})
 
 	serv := &http.Server{
