@@ -12,12 +12,6 @@ import (
 // #include <sys/file.h>
 import "C"
 
-type Distribution struct {
-	Os            string   `json:"os"`
-	CodeName      string   `json:"codename"`
-	Architectures []string `json:"architectures"`
-}
-
 type BuildOptions struct {
 	Distributions []*Distribution `json:"distributions,omit-empty"`
 }
@@ -133,14 +127,6 @@ func (x *Options) SaveConfig() error {
 		*opt = cp
 		return nil
 	})
-}
-
-func (x *Distribution) SourceName() string {
-	return fmt.Sprintf("%s/%s", x.Os, x.CodeName)
-}
-
-func (x *Distribution) BinaryName(arch string) string {
-	return fmt.Sprintf("%s/%s/%s", x.Os, x.CodeName, arch)
 }
 
 var options = &Options{
