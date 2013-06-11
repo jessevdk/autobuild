@@ -1,11 +1,7 @@
 TARGET = autobuild
-ALL_SOURCES = $(wildcard *.go)
+SOURCES = $(wildcard *.go)
 DESTDIR =
 PREFIX = /usr/local
-
-# Remove man.go
-SOURCES = $(subst man.go,,$(ALL_SOURCES))
-MAN_SOURCES = $(subst autobuild.go,man.go,$(SOURCES))
 
 INSTALLDIR = $(DESTDIR)$(PREFIX)
 
@@ -28,9 +24,11 @@ MANINSTALLDIR = $(INSTALLDIR)/share/man/man1
 
 all: $(TARGET)
 
-$(TARGET): $(SOURCES) $(RESOURCES)
-	$(call vecho,GC,$@) $(GC) build -o $@ $(SOURCES) && \
-	$(call veecho,RES,$@) objcopy $(SECTIONS) $(TARGET)
+genresources.go: $(RESOURCES)
+	go run build/makeresources.go --output $@ --strip-prefix resources/ --compress $^
+
+$(TARGET): genresources.go $(SOURCES) $(RESOURCES)
+	$(call vecho,GC,$@) $(GC) build -o $@
 
 CLEANFILES = $(TARGET) $(TARGET).man .gen-man
 

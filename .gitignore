@@ -1,3 +1,4 @@
 /autobuild
 /autobuild.man
 /.gen-man
+/genresources.go

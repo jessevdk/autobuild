@@ -1,15 +1,11 @@
 package main
 
 import (
-	"debug/elf"
 	"fmt"
-	"io"
 	"os"
 	"path"
 	"time"
 )
-
-var fd *elf.File
 
 type ResourceFile struct {
 	Data   []byte
@@ -72,29 +68,11 @@ func (x *ResourceFile) Seek(offset int64, whence int) (int64, error) {
 	return x.Offset, nil
 }
 
-func init() {
-	var err error
-
-	fd, err = elf.Open(os.Args[0])
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr,
-			"Failed to open file `%s' for resources.\n",
-			os.Args[0])
-	}
-}
-
 func GetResource(name string) (*ResourceFile, error) {
-	section := fd.Section("autobuild_res_" + name)
+	data, ok := Resources["/"+name]
 
-	if section == nil {
+	if !ok {
 		return nil, os.ErrNotExist
-	}
-
-	data, err := section.Data()
-
-	if err != nil && err != io.EOF {
-		return nil, err
 	}
 
 	return &ResourceFile{

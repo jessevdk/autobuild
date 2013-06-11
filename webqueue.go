@@ -1,6 +1,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -222,6 +223,34 @@ func WebQueueServiceHandleStage(w http.ResponseWriter, r *http.Request, uid uint
 	enc.Encode(ret)
 }
 
+type CompressedFileServer struct {
+	http.Handler
+}
+
+type CompressedResponseWriter struct {
+	http.ResponseWriter
+
+	gwriter *gzip.Writer
+}
+
+func (x *CompressedResponseWriter) Write(data []byte) (int, error) {
+	return x.gwriter.Write(data)
+}
+
+func (x *CompressedFileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		w.Header().Set("Content-Encoding", "gzip")
+		x.Handler.ServeHTTP(w, r)
+	} else {
+		c := &CompressedResponseWriter{
+			ResponseWriter: w,
+			gwriter:        gzip.NewWriter(w),
+		}
+
+		x.Handler.ServeHTTP(c, r)
+	}
+}
+
 func RunWebQueueService(filename string, uid uint32) (chan bool, error) {
 	// Run a http server on 'filename' unix socket
 	ln, err := net.Listen("unix", filename)
@@ -234,11 +263,11 @@ func RunWebQueueService(filename string, uid uint32) (chan bool, error) {
 
 	mux := http.NewServeMux()
 
-	/*mux.Handle("/", http.FileServer(&ResourceFS{
-		Prefix: "webqueue",
-	}))*/
-
-	mux.Handle("/", http.FileServer(http.Dir("resources/webqueue")))
+	mux.Handle("/", &CompressedFileServer{
+		Handler: http.FileServer(&ResourceFS{
+			Prefix: "webqueue",
+		}),
+	})
 
 	mux.HandleFunc("/queue/", func(w http.ResponseWriter, r *http.Request) {
 		WebQueueServiceHandleQueue(w, r, uid)
