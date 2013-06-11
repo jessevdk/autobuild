@@ -16,12 +16,12 @@ func (x *CommandStage) Execute(args []string) error {
 			return err
 		}
 
-		a := &Archive{
+		a := &Stage{
 			Filename: arg,
 			Data:     data,
 		}
 
-		ret := &GeneralReply{}
+		ret := &StageReply{}
 
 		if err := RemoteCall("DaemonCommands.Stage", a, ret); err != nil {
 			return err

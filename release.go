@@ -104,7 +104,7 @@ func (x *CommandRelease) Execute(args []string) error {
 		Packages: packages,
 	}
 
-	r := &GeneralReply{}
+	r := &ReleaseReply{}
 	return RemoteCall("DaemonCommands.Release", rel, r)
 }
 

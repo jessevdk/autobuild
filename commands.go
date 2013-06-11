@@ -10,21 +10,35 @@ import (
 type DaemonCommands struct {
 }
 
-type Archive struct {
+type Stage struct {
 	Filename string
 	Data     []byte
 
 	Uid uint32
 }
 
+type StageReply struct {
+	Info PackageInfo
+}
+
 type Incoming struct {
 	Uid uint32
 }
 
-type Release struct {
-	Packages []IncomingPackage
+type PackageIds struct {
+	Packages []uint64
 	Uid      uint32
 }
+
+type PackageIdsReply struct {
+	Packages []uint64
+}
+
+type Release PackageIds
+type Discard PackageIds
+
+type ReleaseReply PackageIdsReply
+type DiscardReply PackageIdsReply
 
 type GeneralReply struct {
 }
