@@ -61,7 +61,7 @@ func (x *CommandRelease) Execute(args []string) error {
 
 	line = line[0 : len(line)-1]
 
-	packages := make([]IncomingPackage, 0)
+	packages := make([]uint64, 0, len(ret.Packages))
 
 	parts := strings.Split(line, ",")
 
@@ -69,7 +69,10 @@ func (x *CommandRelease) Execute(args []string) error {
 		part = strings.TrimSpace(part)
 
 		if part == "*" {
-			packages = ret.Packages
+			for _, pkg := range ret.Packages {
+				packages = append(packages, pkg.Id)
+			}
+
 			break
 		}
 
@@ -82,7 +85,7 @@ func (x *CommandRelease) Execute(args []string) error {
 				return err
 			}
 
-			packages = append(packages, ret.Packages[int(idx)-1])
+			packages = append(packages, ret.Packages[int(idx)-1].Id)
 		} else {
 			start, err := strconv.ParseInt(rng[0], 10, 32)
 
@@ -96,7 +99,9 @@ func (x *CommandRelease) Execute(args []string) error {
 				return err
 			}
 
-			packages = append(packages, ret.Packages[start:end+1]...)
+			for _, pkg := range ret.Packages[start : end+1] {
+				packages = append(packages, pkg.Id)
+			}
 		}
 	}
 

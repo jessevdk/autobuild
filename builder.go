@@ -10,9 +10,11 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"path"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -53,6 +55,8 @@ type DistroBuildInfo struct {
 	Id           uint64
 }
 
+type DistroBuildInfoMap map[uint64]*DistroBuildInfo
+
 type BuildInfo struct {
 	Info    *PackageInfo
 	Package *ExtractedPackage
@@ -62,6 +66,37 @@ type BuildInfo struct {
 
 	Source   map[string]*DistroBuildInfo
 	Binaries map[string]*DistroBuildInfo
+	Packages DistroBuildInfoMap
+}
+
+func (x DistroBuildInfoMap) MarshalJSON() ([]byte, error) {
+	rm := make(map[string]*DistroBuildInfo)
+
+	for k, v := range x {
+		rm[fmt.Sprintf("%v", k)] = v
+	}
+
+	return json.Marshal(rm)
+}
+
+func (x DistroBuildInfoMap) UnmarshalJSON(data []byte) error {
+	rm := make(map[string]*DistroBuildInfo)
+
+	if err := json.Unmarshal(data, rm); err != nil {
+		return err
+	}
+
+	for k, v := range rm {
+		ki, err := strconv.ParseUint(k, 10, 64)
+
+		if err != nil {
+			return err
+		}
+
+		x[ki] = v
+	}
+
+	return nil
 }
 
 type ExtractedPackage struct {
@@ -77,6 +112,8 @@ type PackageBuilder struct {
 	FinishedPackages  []*BuildInfo
 	PackageQueue      []*PackageInfo
 
+	BuildInfoMap map[uint64]*BuildInfo
+
 	notifyQueue chan bool
 
 	Mutex     sync.Mutex
@@ -84,7 +121,8 @@ type PackageBuilder struct {
 }
 
 var builder = PackageBuilder{
-	notifyQueue: make(chan bool, 1024),
+	BuildInfoMap: make(map[uint64]*BuildInfo),
+	notifyQueue:  make(chan bool, 1024),
 }
 
 var packageInfoRegex *regexp.Regexp
@@ -98,8 +136,12 @@ func (x *PackageBuilder) Do(fn func(b *PackageBuilder) error) error {
 	return err
 }
 
-func (x *PackageBuilder) Stage(pname string, fn func(x *PackageBuilder) (*PackageInfo, error)) error {
-	return x.Do(func(b *PackageBuilder) error {
+func (x *PackageBuilder) Stage(pname string,
+	uid uint32,
+	fn func(x *PackageBuilder, writer io.Writer) error) (*PackageInfo, error) {
+	var info *PackageInfo
+
+	return info, x.Do(func(b *PackageBuilder) error {
 		// Check if we are currently building this package
 		if b.CurrentlyBuilding.MatchStageFile(pname) {
 			return fmt.Errorf("The file `%s' is currently building. Please wait until the built is finished to build the package again.", pname)
@@ -119,11 +161,27 @@ func (x *PackageBuilder) Stage(pname string, fn func(x *PackageBuilder) (*Packag
 			}
 		}
 
-		info, err := fn(b)
+		stagedir := path.Join(options.Base, "stage")
+		os.MkdirAll(stagedir, 0755)
+
+		stagefile := path.Join(stagedir, pname)
+
+		f, err := os.Create(stagefile)
 
 		if err != nil {
 			return err
 		}
+
+		if err := fn(b, f); err != nil {
+			f.Close()
+			os.Remove(stagefile)
+
+			return err
+		}
+
+		f.Close()
+
+		info = NewPackageInfo(stagefile, uid)
 
 		b.PackageQueue = append(b.PackageQueue, info)
 		b.notifyQueue <- true
@@ -156,6 +214,11 @@ func (x *PackageBuilder) Run() {
 
 				x.Do(func(b *PackageBuilder) error {
 					b.FinishedPackages = append(b.FinishedPackages, binfo)
+
+					for _, p := range binfo.Packages {
+						b.BuildInfoMap[p.Id] = binfo
+					}
+
 					b.CurrentlyBuilding = nil
 
 					if len(b.PackageQueue) > 0 {
@@ -370,7 +433,27 @@ func (x *PackageBuilder) parseChanges(info *DistroBuildInfo) error {
 	return nil
 }
 
-func (x *PackageBuilder) moveResults(info *DistroBuildInfo, resdir string, rmfiles ...string) error {
+func (x *PackageBuilder) chownToUser(target string, binfo *BuildInfo) error {
+	var gid uint32
+
+	if len(options.Group) != 0 && options.GroupId != 0 {
+		gid = options.GroupId
+	} else {
+		us, _ := user.LookupId(fmt.Sprintf("%v", binfo.Info.Uid))
+
+		if us != nil {
+			g, err := strconv.ParseUint(us.Gid, 10, 32)
+
+			if err == nil {
+				gid = uint32(g)
+			}
+		}
+	}
+
+	return os.Chown(target, int(binfo.Info.Uid), int(gid))
+}
+
+func (x *PackageBuilder) moveResults(binfo *BuildInfo, info *DistroBuildInfo, resdir string, rmfiles ...string) error {
 	incoming := info.IncomingDir
 	os.MkdirAll(incoming, 0755)
 
@@ -392,10 +475,10 @@ func (x *PackageBuilder) moveResults(info *DistroBuildInfo, resdir string, rmfil
 			err)
 	}
 
-	rmmapping := make(map[string]struct{})
+	rmmapping := make(map[string]bool)
 
 	for _, rm := range rmfiles {
-		rmmapping[rm] = struct{}{}
+		rmmapping[rm] = true
 	}
 
 	chsuf := ".changes"
@@ -405,15 +488,17 @@ func (x *PackageBuilder) moveResults(info *DistroBuildInfo, resdir string, rmfil
 		target := path.Join(incoming, name)
 
 		// Remove filename if the target was already built
-		if _, ok := rmmapping[target]; ok {
+		if rmmapping[target] {
 			os.Remove(filename)
 		} else {
-			if err := os.Rename(filename, target); err != nil {
+			if err := MoveFile(filename, target); err != nil {
 				return fmt.Errorf("Failed to move build result `%s' to target location `%s': %s",
 					filename,
 					incoming,
 					err)
 			}
+
+			x.chownToUser(target, binfo)
 
 			if strings.HasSuffix(target, chsuf) {
 				info.Changes = target[0 : len(target)-len(chsuf)]
@@ -529,7 +614,7 @@ func (x *PackageBuilder) extractSourcePackage(info *BuildInfo, distro *Distribut
 	return nil
 }
 
-func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distribution) error {
+func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distribution) *DistroBuildInfo {
 	src := &DistroBuildInfo{
 		IncomingDir: path.Join(options.Base, "incoming", distro.Os, distro.CodeName),
 
@@ -549,8 +634,8 @@ func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distributio
 	src.Error = WrapError(x.extractSourcePackage(info, distro))
 
 	if src.Error != nil {
-		info.Source[distro.SourceName()] = src
-		return src.Error
+		info.Packages[src.Id] = src
+		return src
 	}
 
 	pkgdir := path.Join(info.Package.Dir, fmt.Sprintf("%s-%s", info.Info.Name, info.Info.Version))
@@ -593,14 +678,14 @@ func (x *PackageBuilder) buildSourcePackage(info *BuildInfo, distro *Distributio
 		os.RemoveAll(info.BuildResultsDir)
 	} else {
 		// Move build results to incoming
-		x.moveResults(src, info.BuildResultsDir)
+		x.moveResults(info, src, info.BuildResultsDir)
 	}
 
-	info.Source[distro.SourceName()] = src
-	return src.Error
+	info.Packages[src.Id] = src
+	return src
 }
 
-func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distribution, arch string, buildBinaryIndep bool) error {
+func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, src *DistroBuildInfo, distro *Distribution, arch string, buildBinaryIndep bool) error {
 	bin := &DistroBuildInfo{
 		IncomingDir: path.Join(options.Base, "incoming", distro.Os, distro.CodeName),
 
@@ -614,6 +699,7 @@ func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distributi
 	}
 
 	var debBuildOpt string
+
 	if buildBinaryIndep == true {
 		debBuildOpt = "-b"
 	} else {
@@ -658,10 +744,10 @@ func (x *PackageBuilder) buildBinaryPackages(info *BuildInfo, distro *Distributi
 		os.RemoveAll(info.BuildResultsDir)
 	} else {
 		// Move build results to incoming (skipping source files)
-		x.moveResults(bin, info.BuildResultsDir, info.Source[distro.SourceName()].Files...)
+		x.moveResults(info, bin, info.BuildResultsDir, src.Files...)
 	}
 
-	info.Binaries[distro.BinaryName(arch)] = bin
+	info.Packages[bin.Id] = bin
 	return bin.Error
 }
 
@@ -674,8 +760,7 @@ func (x *PackageBuilder) buildPackage() *BuildInfo {
 
 	binfo := &BuildInfo{
 		Info:     info,
-		Source:   make(map[string]*DistroBuildInfo),
-		Binaries: make(map[string]*DistroBuildInfo),
+		Packages: make(map[uint64]*DistroBuildInfo),
 	}
 
 	pack, err := x.extractPackage(info)
@@ -697,14 +782,17 @@ func (x *PackageBuilder) buildPackage() *BuildInfo {
 
 	// For each distribution
 	for _, distro := range pack.Options.Distributions {
-		if err := x.buildSourcePackage(binfo, distro); err != nil {
+		src := x.buildSourcePackage(binfo, distro)
+
+		if src.Error != nil {
 			return binfo
 		}
 
 		for i, arch := range distro.Architectures {
 			//we build binary-indep packages only for the first architecture supported
 			buildBinaryIndep := i == 0
-			x.buildBinaryPackages(binfo, distro, arch, buildBinaryIndep)
+
+			x.buildBinaryPackages(binfo, src, distro, arch, buildBinaryIndep)
 		}
 	}
 
@@ -755,37 +843,9 @@ func (x *PackageBuilder) doRelease(info *DistroBuildInfo) error {
 	for _, f := range info.Files {
 		target := path.Join(incomingdir, path.Base(f))
 
-		if err := os.Rename(f, target); err == nil {
-			return nil
-		}
-
-		// Try to copy instead of renaming
-		fr, err := os.Open(f)
-
-		if err != nil {
+		if err := MoveFile(f, target); err != nil {
 			return err
 		}
-
-		defer fr.Close()
-		os.MkdirAll(path.Dir(target), 0755)
-
-		fw, err := os.Create(target)
-
-		if err != nil {
-			return err
-		}
-
-		defer fw.Close()
-
-		if _, err := io.Copy(fw, fr); err != nil {
-			return err
-		}
-
-		// Remove source after copy
-		fr.Close()
-		os.Remove(f)
-
-		return nil
 	}
 
 	return nil
@@ -804,7 +864,7 @@ func (x *PackageBuilder) removeFinished() {
 	finishedp := make([]*BuildInfo, 0, len(x.FinishedPackages))
 
 	for _, res := range x.FinishedPackages {
-		if len(res.Source) != 0 || len(res.Binaries) != 0 {
+		if len(res.Packages) != 0 {
 			finishedp = append(finishedp, res)
 		}
 	}
@@ -812,10 +872,26 @@ func (x *PackageBuilder) removeFinished() {
 	x.FinishedPackages = finishedp
 }
 
-func (x *PackageBuilder) Discard(ids []uint64) ([]uint64, error) {
+func (x *PackageBuilder) filterOwned(ids []uint64, uid uint32) []uint64 {
+	ret := make([]uint64, 0, len(ids))
+
+	for _, id := range ids {
+		binfo := x.BuildInfoMap[id]
+
+		if binfo != nil && binfo.Info.Uid == uid {
+			ret = append(ret, id)
+		}
+	}
+
+	return ret
+}
+
+func (x *PackageBuilder) Discard(ids []uint64, uid uint32) ([]uint64, error) {
 	retval := make([]uint64, 0, len(ids))
 
 	return retval, x.Do(func(b *PackageBuilder) error {
+		ids = x.filterOwned(ids, uid)
+
 		err := x.foreachMatchedId(ids, func(info *BuildInfo, binfo *DistroBuildInfo) error {
 			if err := x.doDiscard(binfo); err != nil {
 				return err
@@ -830,13 +906,15 @@ func (x *PackageBuilder) Discard(ids []uint64) ([]uint64, error) {
 	})
 }
 
-func (x *PackageBuilder) Release(ids []uint64) ([]uint64, error) {
+func (x *PackageBuilder) Release(ids []uint64, uid uint32) ([]uint64, error) {
 	retval := make([]uint64, 0, len(ids))
 
 	return retval, x.Do(func(b *PackageBuilder) error {
 		runReproMutex.Lock()
 
 		distros := make(map[string]Distribution)
+
+		ids = x.filterOwned(ids, uid)
 
 		err := x.foreachMatchedId(ids, func(info *BuildInfo, binfo *DistroBuildInfo) error {
 			if err := x.doRelease(binfo); err != nil {
@@ -865,30 +943,27 @@ func (x *PackageBuilder) foreachMatchedId(ids []uint64, fn func(info *BuildInfo,
 	sortedids.Sort()
 
 	for _, res := range x.FinishedPackages {
-		sb := []map[string]*DistroBuildInfo{res.Source, res.Binaries}
+		delmap := make([]uint64, 0, len(res.Packages))
 
-		for _, m := range sb {
-			delmap := make([]string, 0, len(m))
+		var err error
 
-			var err error
-
-			for k, v := range m {
-				if sortedids.Contains(v.Id) {
-					if err = fn(res, v); err != nil {
-						break
-					}
-
-					delmap = append(delmap, k)
+		for _, v := range res.Packages {
+			if sortedids.Contains(v.Id) {
+				if err = fn(res, v); err != nil {
+					break
 				}
-			}
 
-			for _, k := range delmap {
-				delete(m, k)
+				delmap = append(delmap, v.Id)
 			}
+		}
 
-			if err != nil {
-				return err
-			}
+		for _, k := range delmap {
+			delete(res.Packages, k)
+			delete(x.BuildInfoMap, k)
+		}
+
+		if err != nil {
+			return err
 		}
 	}
 
@@ -951,8 +1026,15 @@ func (x *PackageBuilder) Load() error {
 			}
 
 			b.FinishedPackages = state.FinishedPackages
+
 			b.PackageQueue = state.PackageQueue
 			b.PackageId = state.PackageId
+
+			for _, info := range b.FinishedPackages {
+				for _, binfo := range info.Packages {
+					b.BuildInfoMap[binfo.Id] = info
+				}
+			}
 
 			if len(b.PackageQueue) > 0 {
 				b.notifyQueue <- true
@@ -963,6 +1045,22 @@ func (x *PackageBuilder) Load() error {
 
 		return nil
 	})
+}
+
+func (x *PackageBuilder) FindPackage(id uint64) (*BuildInfo, *DistroBuildInfo) {
+	binfo := x.BuildInfoMap[id]
+
+	if binfo == nil {
+		return nil, nil
+	}
+
+	info := binfo.Packages[id]
+
+	if info != nil {
+		return binfo, info
+	}
+
+	return nil, nil
 }
 
 func init() {
