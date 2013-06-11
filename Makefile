@@ -1,5 +1,6 @@
 TARGET = autobuild
 SOURCES = $(wildcard *.go)
+MANSOURCES = $(wildcard man/*.go)
 DESTDIR =
 PREFIX = /usr/local
 
@@ -45,8 +46,8 @@ uninstall:
 	rm -f "$(INSTALLDIR)/bin/$(TARGET)"; \
 	rm -f "$(MANINSTALLDIR)/$(TARGET).1"
 
-.gen-man: $(MAN_SOURCES)
-	$(call vecho,GC,$@) $(GC) build -o $@ $(MAN_SOURCES)
+.gen-man: $(MANSOURCES)
+	$(call vecho,GC,$@) (cd man && $(GC) build -o ../$@)
 
 $(TARGET).man: .gen-man
 	$(call vecho,MAN,$@) ./.gen-man > $@
