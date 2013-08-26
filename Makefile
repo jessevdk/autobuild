@@ -19,7 +19,6 @@ endif
 GC = go
 
 RESOURCES = $(shell find resources/ -type f)
-SECTIONS = $(foreach i,$(RESOURCES),--add-section autobuild_res_$(subst resources/,,$(i))=$(i))
 
 MANINSTALLDIR = $(INSTALLDIR)/share/man/man1
 
