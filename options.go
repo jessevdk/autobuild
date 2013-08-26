@@ -36,7 +36,7 @@ type Options struct {
 	Pbuilder     string                 `json:"pbuilder"`
 	UseTmpfs     bool                   `json:"use-tmpfs"`
 	Repository   RepositoryOptions      `json:"repository"`
-	GroupFlag    func(val string) error `short:"g" long:"group" description:"Authenticated group for autobuild communication" default:"autobuild"`
+	GroupFlag    func(val string) error `short:"g" long:"group" description:"Authenticated group for autobuild communication" default:"autobuild" json:"-"`
 
 	Group   string `json:"group,omitempty"`
 	GroupId uint32 `json:"-"`
