@@ -85,6 +85,11 @@ func WriteResource(name string, target string) {
 	res, err := GetResource(name)
 
 	if res == nil {
+		fmt.Fprintf(os.Stderr,
+		            "Failed to obtain resource `%s' to `%s': %s\n",
+		            name,
+		            target,
+		            err)
 		return
 	}
 
