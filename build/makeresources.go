@@ -87,6 +87,7 @@ func main() {
 	}
 
 	fmt.Fprintf(writer, "package %s\n\n", options.Package)
+	fmt.Fprintf(writer, "var %sCompressed = %#v\n", options.Variable, options.Compress)
 	fmt.Fprintf(writer, "var %s = %#v\n", options.Variable, ret)
 
 	writer.Close()

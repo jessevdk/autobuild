@@ -25,7 +25,7 @@ MANINSTALLDIR = $(INSTALLDIR)/share/man/man1
 all: $(TARGET)
 
 genresources.go: $(RESOURCES)
-	go run build/makeresources.go --output $@ --strip-prefix resources $^
+	go run build/makeresources.go --output $@ --strip-prefix resources --compress $^
 
 $(TARGET): genresources.go $(SOURCES) $(RESOURCES)
 	$(call vecho,GC,$@) $(GC) build -o $@

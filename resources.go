@@ -5,13 +5,33 @@ import (
 	"os"
 	"path"
 	"time"
+	"bytes"
+	"io/ioutil"
+	"compress/gzip"
 )
 
 type ResourceFile struct {
 	Data   []byte
 	Offset int64
+	Compressed bool
 
 	name string
+}
+
+func (x *ResourceFile) UncompressedData() ([]byte, error) {
+	if x.Compressed {
+		buf := bytes.NewBuffer(x.Data)
+		r, err := gzip.NewReader(buf)
+
+		if err != nil {
+			return nil, err
+		}
+
+		defer r.Close()
+		return ioutil.ReadAll(r)
+	} else {
+		return x.Data, nil
+	}
 }
 
 func (x *ResourceFile) Close() error {
@@ -78,6 +98,7 @@ func GetResource(name string) (*ResourceFile, error) {
 	return &ResourceFile{
 		name: name,
 		Data: data,
+		Compressed: ResourcesCompressed,
 	}, nil
 }
 
@@ -107,13 +128,19 @@ func WriteResource(name string, target string) {
 		return
 	}
 
-	if _, err := f.Write(res.Data); err != nil {
+	defer f.Close()
+
+	bt, err := res.UncompressedData()
+
+	if err != nil {
+		return
+	}
+
+	if _, err := f.Write(bt); err != nil {
 		fmt.Fprintf(os.Stderr,
 			"Failed to write resource `%s' to `%s': %s.\n",
 			name,
 			target,
 			err)
 	}
-
-	f.Close()
 }
