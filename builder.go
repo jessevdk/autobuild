@@ -220,7 +220,11 @@ func (x *PackageBuilder) Run() {
 				binfo := x.buildPackage()
 
 				if options.Verbose {
-					fmt.Printf("Finished building `%s'\n", path.Base(binfo.Info.StageFile))
+					if binfo.Error != nil {
+						fmt.Printf("Error building `%s': %s\n", path.Base(binfo.Info.StageFile), binfo.Error)
+					} else {
+						fmt.Printf("Finished building `%s'\n", path.Base(binfo.Info.StageFile))
+					}
 				}
 
 				x.Do(func(b *PackageBuilder) error {
