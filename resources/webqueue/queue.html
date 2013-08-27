@@ -40,16 +40,19 @@
                 var files = $('<ul class="files"/>');
                 var idir = p.IncomingDir;
 
-                $.each(p.Files, function (_, file) {
-                    var fname = file.substring(idir.length + 1);
+                if (p.files != null)
+                {
+                    $.each(p.Files, function (_, file) {
+                        var fname = file.substring(idir.length + 1);
 
-                    var a = $('<a/>', {
-                        href: '/queue/download/' + p.Id + '/' + fname
-                    }).text(fname);
+                        var a = $('<a/>', {
+                            href: '/queue/download/' + p.Id + '/' + fname
+                        }).text(fname);
 
-                    var li = $('<li/>').append(a);
-                    li.appendTo(files);
-                });
+                        var li = $('<li/>').append(a);
+                        li.appendTo(files);
+                    });
+                }
 
                 sp.append(st);
                 sp.append(nn);
