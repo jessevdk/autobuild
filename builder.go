@@ -796,6 +796,7 @@ func (x *PackageBuilder) buildPackage() *BuildInfo {
 		src := x.buildSourcePackage(binfo, distro)
 
 		if src.Error != nil {
+			binfo.Error = src.Error
 			return binfo
 		}
 
@@ -803,7 +804,11 @@ func (x *PackageBuilder) buildPackage() *BuildInfo {
 			//we build binary-indep packages only for the first architecture supported
 			buildBinaryIndep := i == 0
 
-			x.buildBinaryPackages(binfo, src, distro, arch, buildBinaryIndep)
+			err := x.buildBinaryPackages(binfo, src, distro, arch, buildBinaryIndep)
+
+			if err != nil {
+				binfo.Error = err
+			}
 		}
 	}
 
