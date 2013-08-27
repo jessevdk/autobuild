@@ -1086,4 +1086,6 @@ func (x *PackageBuilder) FindPackage(id uint64) (*BuildInfo, *DistroBuildInfo) {
 func init() {
 	packageInfoRegex, _ = regexp.Compile(`(.*)[_-]([0-9]+(\.[0-9]+)+).tar.(gz|xz|bz2)`)
 	changelogSubstituteRegex, _ = regexp.Compile(`-([0-9]+)\) UNRELEASED`)
+
+	gob.Register(Error(""))
 }
