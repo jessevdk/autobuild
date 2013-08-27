@@ -44,7 +44,15 @@ func WrapError(err error) error {
 	} else {
 		return Error(err.Error())
 	}
+}
 
+func (x Error) GobEncode() ([]byte, error) {
+	return []byte(x), nil
+}
+
+func (x *Error) GobDecode(bytes []byte) error {
+	*x = Error(bytes)
+	return nil
 }
 
 type DistroBuildInfo struct {
