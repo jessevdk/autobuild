@@ -1,18 +1,18 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"time"
-	"bytes"
-	"io/ioutil"
-	"compress/gzip"
 )
 
 type ResourceFile struct {
-	Data   []byte
-	Offset int64
+	Data       []byte
+	Offset     int64
 	Compressed bool
 
 	name string
@@ -96,8 +96,8 @@ func GetResource(name string) (*ResourceFile, error) {
 	}
 
 	return &ResourceFile{
-		name: name,
-		Data: data,
+		name:       name,
+		Data:       data,
 		Compressed: ResourcesCompressed,
 	}, nil
 }
@@ -107,10 +107,10 @@ func WriteResource(name string, target string) {
 
 	if res == nil {
 		fmt.Fprintf(os.Stderr,
-		            "Failed to obtain resource `%s' to `%s': %s\n",
-		            name,
-		            target,
-		            err)
+			"Failed to obtain resource `%s' to `%s': %s\n",
+			name,
+			target,
+			err)
 		return
 	}
 
