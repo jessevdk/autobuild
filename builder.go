@@ -30,18 +30,21 @@ func (x *Error) MarshalJSON() ([]byte, error) {
 	return json.Marshal(x.Error())
 }
 
-func (x *Error) Error() string {
-	return string(*x)
+func (x Error) Error() string {
+	return string(x)
 }
 
-func WrapError(err error) *Error {
+func WrapError(err error) error {
 	if err == nil {
 		return nil
 	}
 
-	e := Error(err.Error())
+	if _, ok := err.(Error); ok {
+		return err
+	} else {
+		return Error(err.Error())
+	}
 
-	return &e
 }
 
 type DistroBuildInfo struct {
