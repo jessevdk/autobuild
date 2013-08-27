@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path"
 	"strconv"
@@ -377,7 +376,8 @@ func (x *WebQueueCommand) Execute(args []string) error {
 		finished <- true
 	}()
 
-	go exec.Command("x-www-browser", fmt.Sprintf("http://localhost:%v/queue.html", port)).Run()
+	url := fmt.Sprintf("http://localhost:%v/queue.html", port)
+	x.openBrowser(url)
 
 	sig := make(chan os.Signal, 10)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
