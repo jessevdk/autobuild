@@ -1,0 +1,14 @@
+#!/bin/bash
+
+gopath=${GOPATH%%:*}
+
+# Fetch and install dependencies
+deps="github.com/jessevdk/go-flags github.com/jessevdk/go-configure"
+
+for i in $fetch; do
+	if [ ! -d $gopath/src/$i ]; then
+		go get -v $i
+	fi
+done
+
+go run build/configure.go "$@"

@@ -1,54 +1,34 @@
-TARGET = autobuild
-SOURCES = $(wildcard *.go)
-MANSOURCES = $(wildcard man/*.go)
-DESTDIR =
-PREFIX = /usr/local
+SOURCES = genresources.go
 
-INSTALLDIR = $(DESTDIR)$(PREFIX)
-
-V =
-
-ifneq ($(V),)
-vecho =
-veecho =
-else
-vecho = @echo [$1] $2;
-veecho = echo [$1] $2;
-endif
-
-GC = go
+include go.make
 
 RESOURCES = $(shell find resources/ -type f)
-
-MANINSTALLDIR = $(INSTALLDIR)/share/man/man1
-
-all: $(TARGET)
+MANINSTALLDIR = $(DESTDIR)$(mandir)/share/man/man1
 
 genresources.go: $(RESOURCES)
 	go run build/makeresources.go --output $@ --strip-prefix resources --compress $^
 
-$(TARGET): genresources.go $(SOURCES) $(RESOURCES)
-	$(call vecho,GC,$@) $(GC) build -o $@
+clean-man:
+	rm -f $(TARGET).man .gen-man
 
-CLEANFILES = $(TARGET) $(TARGET).man .gen-man
+clean: clean-man
 
-clean:
-	$(call vecho,CLEAN,$(CLEANFILES)) rm -f $(CLEANFILES)
+install: install-man
 
-install: $(TARGET) $(TARGET).man
-	test -z "$(INSTALLDIR)/bin" || mkdir -p "$(INSTALLDIR)/bin" && \
-	install -c $(TARGET) "$(INSTALLDIR)/bin"; \
+install-man: $(TARGET).man
 	test -z "$(MANINSTALLDIR)" || mkdir -p "$(MANINSTALLDIR)" && \
 	install -c -m 644 $(TARGET).man "$(MANINSTALLDIR)/$(TARGET).1"
 
-uninstall:
+uninstall: uninstall-man
+
+uninstall-man:
 	rm -f "$(INSTALLDIR)/bin/$(TARGET)"; \
 	rm -f "$(MANINSTALLDIR)/$(TARGET).1"
 
 .gen-man: $(MANSOURCES)
-	$(call vecho,GC,$@) (cd man && $(GC) build -o ../$@)
+	(cd man && go build -o ../$@)
 
 $(TARGET).man: .gen-man
-	$(call vecho,MAN,$@) ./.gen-man > $@
+	./.gen-man > $@
 
-.PHONY: install clean all .gen-man
+.PHONY: install-man clean-man uninstall-man
