@@ -2,3 +2,5 @@
 /autobuild.man
 /.gen-man
 /genresources.go
+/appconfig.go
+/go.make
