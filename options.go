@@ -160,5 +160,5 @@ func init() {
 		return nil
 	}
 
-	parser.Description = "simple debian package builder"
+	parser.ShortDescription = "simple debian package builder"
 }
